@@ -74,6 +74,9 @@ const tree = buildFileTree((await loadVault()).files);
     min-height: 100vh;
   }
   a { color: var(--accent); }
+  /* A link or image in a note that resolves to no vault file. */
+  .broken-link { color: var(--muted); text-decoration: underline dotted; outline: 1px dashed var(--muted); }
+  a.broken-link { outline: none; }
 
   .site-header {
     grid-area: header;
