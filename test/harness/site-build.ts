@@ -39,6 +39,8 @@ export interface FixtureOptions {
   untracked?: FixtureFiles;
   /** Vault paths deleted from the working tree after the commit, so git still tracks them. */
   deleted?: string[];
+  /** `false` makes a plain folder with no git repo; `untracked` and `deleted` then just write or remove files. */
+  git?: boolean;
 }
 
 async function writeFiles(vaultDir: string, files: FixtureFiles): Promise<void> {
@@ -56,15 +58,17 @@ async function writeFiles(vaultDir: string, files: FixtureFiles): Promise<void> 
 export async function createFixtureVault(files: FixtureFiles, options: FixtureOptions = {}): Promise<string> {
   const vaultDir = await makeTempDir("vault");
   await writeFiles(vaultDir, files);
-  await git(vaultDir, "init", "--quiet", "--initial-branch=main");
-  await git(vaultDir, "add", "-A");
-  await git(
-    vaultDir,
-    "-c", "user.name=Fixture",
-    "-c", "user.email=fixture@example.invalid",
-    "-c", "commit.gpgsign=false",
-    "commit", "--quiet", "--allow-empty", "-m", "fixture vault",
-  );
+  if (options.git !== false) {
+    await git(vaultDir, "init", "--quiet", "--initial-branch=main");
+    await git(vaultDir, "add", "-A");
+    await git(
+      vaultDir,
+      "-c", "user.name=Fixture",
+      "-c", "user.email=fixture@example.invalid",
+      "-c", "commit.gpgsign=false",
+      "commit", "--quiet", "--allow-empty", "-m", "fixture vault",
+    );
+  }
   await writeFiles(vaultDir, options.untracked ?? {});
   for (const vaultPath of options.deleted ?? []) {
     await rm(join(vaultDir, ...vaultPath.split("/")));

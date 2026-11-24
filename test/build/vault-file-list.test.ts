@@ -58,4 +58,23 @@ describe("the vault's file list follows git", () => {
     expect(build.hasPage("/projects/.hidden-note/")).toBe(false);
     expect(build.hasPage("/.trash/deleted-idea/")).toBe(false);
   }, 30_000);
+
+  test("a vault that is not a git repo builds from its folder, still skipping dot-segments", async () => {
+    const build = await buildFixtureVault(
+      {
+        ".gitignore": "Loose.md\n",
+        "Loose.md": "# Loose\n",
+        "Journal/Monday.md": "# Monday\n",
+        ".obsidian/app.md": "# App\n",
+        "Journal/.private/Secret.md": "# Secret\n",
+      },
+      { git: false },
+    );
+
+    expect(build.ok).toBe(true);
+    expect(build.hasPage("/journal/monday/")).toBe(true);
+    expect(build.hasPage("/loose/")).toBe(true);
+    expect(build.hasPage("/.obsidian/app/")).toBe(false);
+    expect(build.hasPage("/journal/.private/secret/")).toBe(false);
+  }, 30_000);
 });
