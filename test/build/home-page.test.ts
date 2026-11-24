@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { buildFixtureVault, cleanupTempDirs } from "../harness/site-build";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { buildFixtureVault, cleanupTempDirs, type SiteBuild } from "../harness/site-build";
 
 afterAll(cleanupTempDirs);
 
@@ -8,6 +10,22 @@ function homeMain(doc: Document): Element {
   const main = doc.querySelector("body > main");
   if (!main) throw new Error("no <main> on the home page");
   return main;
+}
+
+/** All CSS a page uses, whitespace collapsed: inline <style> elements plus linked stylesheets. */
+async function pageCss(build: SiteBuild, doc: Document): Promise<string> {
+  const inline = [...doc.querySelectorAll("style")].map((s) => s.textContent ?? "");
+  const linked = await Promise.all(
+    [...doc.querySelectorAll('link[rel="stylesheet"]')].map((link) =>
+      readFile(join(build.outDir, ...link.getAttribute("href")!.split("/").filter(Boolean)), "utf8"),
+    ),
+  );
+  return [...inline, ...linked].join("\n").replace(/\s+/g, " ");
+}
+
+/** The CSS custom properties a block of declarations sets. */
+function customProperties(declarations: string): string[] {
+  return [...declarations.matchAll(/(--[\w-]+)\s*:/g)].map((m) => m[1]).sort();
 }
 
 describe("home page", () => {
@@ -66,5 +84,29 @@ describe("home page", () => {
     expect(tree!.querySelectorAll("[aria-current]")).toHaveLength(0);
     expect(tree!.querySelectorAll("details[open]")).toHaveLength(0);
     expect(doc.querySelector('head meta[name="robots"]')?.getAttribute("content")).toBe("noindex, nofollow");
+  }, 30_000);
+});
+
+describe("light/dark theme", () => {
+  test("colours come from variables that a prefers-color-scheme: dark query redefines", async () => {
+    const build = await buildFixtureVault({ "Inbox.md": "# Inbox\n" });
+
+    expect(build.ok).toBe(true);
+    for (const url of ["/", "/inbox/"]) {
+      const css = await pageCss(build, await build.page(url));
+      const dark = css.match(/@media\s*\(\s*prefers-color-scheme:\s*dark\s*\)\s*\{(.*?\})\s*\}/)?.[1] ?? "";
+      const darkRoot = dark.match(/:root[^{]*\{([^}]*)\}/)?.[1] ?? "";
+      const lightRoot = css.replace(dark, "").match(/:root[^{]*\{([^}]*)\}/)?.[1] ?? "";
+
+      // Both themes set the same colour variables, and form controls follow the theme.
+      expect(customProperties(lightRoot).length).toBeGreaterThan(0);
+      expect(customProperties(darkRoot)).toEqual(customProperties(lightRoot));
+      expect(lightRoot).toMatch(/color-scheme:\s*light dark/);
+      // The page background is set explicitly, from a variable.
+      expect(css).toMatch(/(^|\})\s*body\s*\{[^}]*background(-color)?:\s*var\(--/);
+      // Outside the variable definitions, no colour is written literally.
+      const rules = css.replace(/:root[^{]*\{[^}]*\}/g, "");
+      expect(rules.match(/#[0-9a-f]{3,8}\b|\b(rgba?|hsla?)\(|\b(white|black)\b/gi)).toBeNull();
+    }
   }, 30_000);
 });
