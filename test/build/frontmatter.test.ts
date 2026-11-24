@@ -40,4 +40,18 @@ describe("frontmatter", () => {
     expect([...doc.querySelectorAll("h1")].map((h) => h.textContent)).toEqual(["Soup Stock"]);
     expect(doc.querySelector("article.note p")?.textContent).toBe("Roast the bones first.");
   }, 30_000);
+
+  test("malformed frontmatter does not fail the build; the note renders as if it had none", async () => {
+    const build = await buildFixtureVault({
+      "Broken Meta.md": ["---", "title: [unclosed", "tags: : :", "---", "", "The body still shows.", ""].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/broken-meta/");
+    expect(doc.querySelector("title")?.textContent).toBe("Broken Meta");
+    expect([...doc.querySelectorAll("h1")].map((h) => h.textContent)).toEqual(["Broken Meta"]);
+    const body = doc.querySelector("body")!.textContent!;
+    expect(body).toContain("The body still shows.");
+    expect(body).not.toContain("unclosed");
+  }, 30_000);
 });
