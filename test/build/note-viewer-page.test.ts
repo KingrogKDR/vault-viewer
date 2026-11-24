@@ -53,4 +53,20 @@ describe("note viewer page", () => {
     expect(note.querySelector("p code")?.textContent).toBe("salt");
     expect(note.querySelector("pre > code")?.textContent).toBe("simmer(20)\n");
   }, 30_000);
+
+  test("links to its markdown source, which downloads byte-identical under its file name", async () => {
+    const source = "---\ntags: [café]\n---\n# Crème Brûlée\n\nTorch the sugar — *gently*.\r\n";
+    const build = await buildFixtureVault({ "Desserts/Crème Brûlée.md": source });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/desserts/crème-brûlée/");
+    const download = doc.querySelector("main a[download]")!;
+    expect(download).not.toBeNull();
+    expect(download.getAttribute("download")).toBe("Crème Brûlée.md");
+    expect(download.closest("h1")).toBeNull();
+    expect(doc.querySelectorAll("h1").length).toBe(1);
+    const href = download.getAttribute("href")!;
+    expect(href).toBe("/raw/desserts/cr%C3%A8me-br%C3%BBl%C3%A9e.md");
+    expect(await build.bytes(decodeURI(href))).toEqual(new TextEncoder().encode(source));
+  }, 30_000);
 });

@@ -5,6 +5,7 @@ import { renderNote } from "../lib/render-note";
 import Base from "../layouts/Base.astro";
 import { noteTitle } from "../lib/note-title";
 import AttachmentViewer from "../components/AttachmentViewer.astro";
+import { rawUrlFor } from "../lib/slug";
 
 export async function getStaticPaths() {
   const vault = await loadVault();
@@ -22,7 +23,11 @@ const html = file.kind === "note" ? await renderNote(await readFile(file.absolut
 ---
 <Base title={title} current={file.path}>
   {file.kind === "note" ? (
-    <main><article class="note" set:html={html} /></main>
+    <main>
+      <article class="note" set:html={html} />
+      {/* The note's markdown source, downloaded under its original file name. */}
+      <p><a class="note-download" href={rawUrlFor(file.path)} download={file.path.slice(file.path.lastIndexOf("/") + 1)}>Download markdown</a></p>
+    </main>
   ) : (
     <main><AttachmentViewer file={file} title={title} /></main>
   )}
