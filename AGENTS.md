@@ -27,6 +27,7 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 - `VAULT_DIR=/path/to/vault bun run build`: build the site into `dist/`. Without a usable `VAULT_DIR` the build fails and says why.
 - `bun test`: the seam-1 build tests. They need no vault: each test builds its own fixture vault.
 - CI (`.github/workflows/ci.yml`) runs `bun install --frozen-lockfile`, `bunx tsc --noEmit` and `bun test` on every PR to `main` and every push to it, with no vault and no secrets. PRs must be green before merging.
+- `scripts/deploy-m1-wizard.sh`: one-time Cloudflare + Access setup and the manual M1 deploy (re-run to re-check protection). Interactive; it uploads real vault content only after a curl check shows Access turns away unauthenticated requests. Writes `CF_ACCESS_TEAM`, `CF_PAGES_PROJECT`, `CF_PAGES_HOST` to `.env` (no secrets).
 
 ### Layout
 
