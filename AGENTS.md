@@ -29,7 +29,7 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 
 ### Layout
 
-- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error.
+- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error. Pages and layouts call `loadVault()`, which a production build reads once and shares (dev reads afresh each call); don't call `readVault` per page.
 - `src/lib/frontmatter.ts`: `parseFrontmatter`; the vault reader puts the result on each note as `frontmatter` (`{}` when missing or malformed).
 - `src/lib/note-title.ts`: `noteTitle`, the one place a note's displayed title is chosen (frontmatter `title`, else the opening `# Heading`, else file name without `.md`). The page shows it as the one h1.
 - `src/lib/opening-heading.ts`: what counts as a note's opening heading (an h1 as the first block after frontmatter): its text for the vault reader, and `remarkTitleHeading`, which makes the rendered body open with exactly one h1 showing the title (the opening heading itself when its text is the title, else a replacement), so rehype-slug ids it like any heading. `renderNote(source, { title })` takes the title from `noteTitle`.

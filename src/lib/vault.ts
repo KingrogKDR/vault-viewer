@@ -5,7 +5,7 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { slugFor } from "./slug";
 import { parseFrontmatter, type Frontmatter } from "./frontmatter";
@@ -41,6 +41,24 @@ export function vaultDirFromEnv(): string {
     throw new Error(`VAULT_DIR points to ${dir}, which does not exist`);
   }
   return dir;
+}
+
+const builtVaults = new Map<string, Promise<Vault>>();
+
+/**
+ * The vault at `VAULT_DIR`. Every page needs it (the file tree is on all of
+ * them), so a production build reads and parses it once and shares the result.
+ * `astro dev` reads it afresh on each call, so edits to the vault show on reload.
+ */
+export function loadVault(): Promise<Vault> {
+  const dir = resolve(vaultDirFromEnv());
+  if (process.env.NODE_ENV !== "production") return readVault(dir);
+  let vault = builtVaults.get(dir);
+  if (!vault) {
+    vault = readVault(dir);
+    builtVaults.set(dir, vault);
+  }
+  return vault;
 }
 
 /** Read the vault at `dir`. */
