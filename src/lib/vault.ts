@@ -2,6 +2,7 @@
 // For now this is a plain directory walk over notes; the git-based listing
 // (ADR-0004), attachments and frontmatter arrive in #3, #6 and #7.
 
+import { existsSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { slugFor } from "./slug";
@@ -25,6 +26,9 @@ export function vaultDirFromEnv(): string {
   const dir = process.env.VAULT_DIR;
   if (!dir) {
     throw new Error("VAULT_DIR is not set. Point it at the vault directory to build, e.g. VAULT_DIR=~/vault bun run build");
+  }
+  if (!existsSync(dir)) {
+    throw new Error(`VAULT_DIR points to ${dir}, which does not exist`);
   }
   return dir;
 }
