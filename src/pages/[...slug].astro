@@ -1,0 +1,24 @@
+---
+import { readFile } from "node:fs/promises";
+import { readVault, vaultDirFromEnv, type VaultFile } from "../lib/vault";
+import { renderNote } from "../lib/render-note";
+
+export async function getStaticPaths() {
+  const vault = await readVault(vaultDirFromEnv());
+  return vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } }));
+}
+
+const { file } = Astro.props as { file: VaultFile };
+const html = await renderNote(await readFile(file.absolutePath, "utf8"));
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{file.path}</title>
+  </head>
+  <body>
+    <main><article class="note" set:html={html} /></main>
+  </body>
+</html>
