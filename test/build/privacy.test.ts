@@ -41,4 +41,19 @@ describe("privacy headers and robots rules", () => {
       "X-Content-Type-Options": "nosniff",
     });
   });
+
+  test("robots.txt disallows everything for every user agent", async () => {
+    const lines = (await build.file("robots.txt"))
+      .split("\n")
+      .map((line) => line.replace(/#.*/, "").trim())
+      .filter(Boolean)
+      .map((line) => {
+        const colon = line.indexOf(":");
+        return [line.slice(0, colon).trim().toLowerCase(), line.slice(colon + 1).trim()];
+      });
+    expect(lines).toEqual([
+      ["user-agent", "*"],
+      ["disallow", "/"],
+    ]);
+  });
 });
