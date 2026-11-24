@@ -2,3 +2,7 @@ node_modules/
 dist/
 .astro/
 .env
+
+# Claude Code: agent worktrees and personal settings
+.claude/worktrees/
+.claude/settings.local.json
