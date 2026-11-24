@@ -87,4 +87,26 @@ describe("file tree", () => {
       "Day 10",
     ]);
   }, 30_000);
+
+  test("the folders containing the current vault file are open and no others", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Vegetables/Tomatoes.md": "# Tomatoes\n",
+      "Garden/Herbs/Basil.md": "# Basil\n",
+      "Recipes/Soup.md": "# Soup\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/garden/vegetables/tomatoes/");
+    expect(outline(fileTree(doc).querySelector(":scope > ul"))).toEqual([
+      {
+        folder: "Garden",
+        open: true,
+        entries: [
+          { folder: "Herbs", open: false, entries: ["Basil"] },
+          { folder: "Vegetables", open: true, entries: ["Tomatoes"] },
+        ],
+      },
+      { folder: "Recipes", open: false, entries: ["Soup"] },
+    ]);
+  }, 30_000);
 });

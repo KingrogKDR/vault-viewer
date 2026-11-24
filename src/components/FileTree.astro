@@ -15,7 +15,7 @@ const { entries, current } = Astro.props;
   {entries.map((entry) =>
     entry.kind === "folder" ? (
       <li>
-        <details>
+        <details open={current?.startsWith(`${entry.path}/`)}>
           <summary>{entry.name}</summary>
           <Astro.self entries={entry.entries} current={current} />
         </details>
