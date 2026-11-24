@@ -32,7 +32,10 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 - `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs.
 - `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug.
 - `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
-- `src/pages/[...slug].astro`: one viewer page per vault file, at `/<slug>/`.
+- `src/lib/file-tree.ts`: `buildFileTree(files)`, the file tree's data. Arranges any vault files (`{ path, slug }`) into nested folders, folders first, names in natural case-insensitive order.
+- `src/components/FileTree.astro`: renders file tree entries as nested `ul` > `li` > `details`/`a`. Opens the current vault file's ancestor folders and marks its entry `aria-current="page"`.
+- `src/layouts/Base.astro`: the shared page layout every page uses: `<Base title="..." current="Vault/path.md">`, with the page's own `<main>` in the default slot and extra `<head>` tags in the `head` slot. Holds the header, the `nav.file-tree` sidebar, its no-JavaScript narrow-screen toggle (checkbox `#file-tree-toggle` + label), and the global light/dark CSS.
+- `src/pages/[...slug].astro`: one viewer page per vault file, at `/<slug>/`, inside `Base`.
 - `astro.config.mjs`: static output, trailing-slash directory URLs. Astro handles routing and layout only.
 - `test/harness/site-build.ts`: the seam-1 harness. `buildFixtureVault({ "Path/Note.md": "..." })` writes a made-up vault to a temp dir, commits it to git, runs the real build into its own temp out dir, and returns `{ ok, output, outDir, hasPage(url), page(url) }`; `page` returns a DOM document to query with selectors. `createFixtureVault` + `buildSite({ vaultDir })` split those steps (`vaultDir: null` leaves `VAULT_DIR` unset). Call `cleanupTempDirs` in `afterAll`.
 - `test/build/`: build tests, one file per feature area.
