@@ -5,7 +5,7 @@
 // On narrow screens the tree hides behind the header's "Files" button. The
 // button is a label for a checkbox that precedes the tree, so CSS alone
 // (`:checked ~ .file-tree`) shows it: no JavaScript.
-import { readVault, vaultDirFromEnv } from "../lib/vault";
+import { loadVault } from "../lib/vault";
 import { buildFileTree } from "../lib/file-tree";
 import FileTree from "../components/FileTree.astro";
 
@@ -17,7 +17,7 @@ interface Props {
 }
 
 const { title, current } = Astro.props;
-const tree = buildFileTree((await readVault(vaultDirFromEnv())).files);
+const tree = buildFileTree((await loadVault()).files);
 ---
 <!doctype html>
 <html lang="en">

@@ -1,13 +1,15 @@
 // Vault reader: turns the vault directory into the list of vault files.
-// The listing follows the vault's git (ADR-0004); attachments and frontmatter
-// arrive in #7 and #6.
+// The listing follows the vault's git (ADR-0004); each note carries its parsed
+// frontmatter. Attachments arrive in #7.
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
-import { join, relative, sep } from "node:path";
+import { readdir, readFile, stat } from "node:fs/promises";
+import { join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { slugFor } from "./slug";
+import { parseFrontmatter, type Frontmatter } from "./frontmatter";
+import { openingHeadingText } from "./opening-heading";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +20,10 @@ export interface VaultFile {
   absolutePath: string;
   kind: "note";
   slug: string;
+  /** Parsed YAML frontmatter; `{}` when the note has none or it is malformed. */
+  frontmatter: Frontmatter;
+  /** Plain text of the note's opening `# Heading`, if it opens with one. */
+  openingHeading?: string;
 }
 
 export interface Vault {
@@ -37,13 +43,35 @@ export function vaultDirFromEnv(): string {
   return dir;
 }
 
+const builtVaults = new Map<string, Promise<Vault>>();
+
+/**
+ * The vault at `VAULT_DIR`. Every page needs it (the file tree is on all of
+ * them), so a production build reads and parses it once and shares the result.
+ * `astro dev` reads it afresh on each call, so edits to the vault show on reload.
+ */
+export function loadVault(): Promise<Vault> {
+  const dir = resolve(vaultDirFromEnv());
+  if (process.env.NODE_ENV !== "production") return readVault(dir);
+  let vault = builtVaults.get(dir);
+  if (!vault) {
+    vault = readVault(dir);
+    builtVaults.set(dir, vault);
+  }
+  return vault;
+}
+
 /** Read the vault at `dir`. */
 export async function readVault(dir: string): Promise<Vault> {
   const files: VaultFile[] = [];
   for (const path of await listVaultPaths(dir)) {
     // Only notes get viewer pages until attachments land (#7).
     if (!path.toLowerCase().endsWith(".md")) continue;
-    files.push({ path, absolutePath: join(dir, ...path.split("/")), kind: "note", slug: slugFor(path) });
+    const absolutePath = join(dir, ...path.split("/"));
+    const source = await readFile(absolutePath, "utf8");
+    const frontmatter = parseFrontmatter(source);
+    const openingHeading = openingHeadingText(source);
+    files.push({ path, absolutePath, kind: "note", slug: slugFor(path), frontmatter, openingHeading });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertUniqueSlugs(files);

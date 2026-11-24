@@ -1,17 +1,23 @@
 ---
 import { readFile } from "node:fs/promises";
-import { readVault, vaultDirFromEnv, type VaultFile } from "../lib/vault";
+import { loadVault, type VaultFile } from "../lib/vault";
 import { renderNote } from "../lib/render-note";
 import Base from "../layouts/Base.astro";
+import { noteTitle } from "../lib/note-title";
 
 export async function getStaticPaths() {
-  const vault = await readVault(vaultDirFromEnv());
+  const vault = await loadVault();
   return vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } }));
 }
 
-const { file } = Astro.props as { file: VaultFile };
-const html = await renderNote(await readFile(file.absolutePath, "utf8"));
+// `astro dev` caches getStaticPaths props, so take the note from the current
+// vault read (shared across the build, fresh in dev) to see frontmatter edits.
+const { file: listed } = Astro.props as { file: VaultFile };
+const file = (await loadVault()).files.find((f) => f.path === listed.path) ?? listed;
+const title = noteTitle(file);
+// The rendered body opens with the note's one h1, showing `title`.
+const html = await renderNote(await readFile(file.absolutePath, "utf8"), { title });
 ---
-<Base title={file.path} current={file.path}>
+<Base title={title} current={file.path}>
   <main><article class="note" set:html={html} /></main>
 </Base>
