@@ -27,6 +27,7 @@ describe("frontmatter", () => {
     const doc = await build.page("/projects/pond-2031/");
     expect(doc.querySelector("title")?.textContent).toBe("Pond Project, Year One");
     expect([...doc.querySelectorAll("h1")].map((h) => h.textContent)).toEqual(["Pond Project, Year One"]);
+    expect(doc.querySelector("article.note h1")?.getAttribute("id")).toBe("pond-project-year-one");
   }, 30_000);
 
   test("without a frontmatter title or an opening h1, the file name is the title", async () => {

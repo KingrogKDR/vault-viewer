@@ -12,13 +12,9 @@ export async function getStaticPaths() {
 
 const { file } = Astro.props as { file: VaultFile };
 const title = noteTitle(file);
-const html = await renderNote(await readFile(file.absolutePath, "utf8"));
+// The rendered body opens with the note's one h1, showing `title`.
+const html = await renderNote(await readFile(file.absolutePath, "utf8"), { title });
 ---
 <Base title={title} current={file.path}>
-  <main>
-    <article class="note">
-      <h1>{title}</h1>
-      <Fragment set:html={html} />
-    </article>
-  </main>
+  <main><article class="note" set:html={html} /></main>
 </Base>
