@@ -33,26 +33,46 @@ export async function cleanupTempDirs(): Promise<void> {
   await Promise.all(tempDirs.splice(0).map((d) => rm(d, { recursive: true, force: true })));
 }
 
-/**
- * Write the given vault files to a fresh temporary directory and commit them
- * to a new git repo, the way CI checks the vault out. Returns the vault dir.
- */
-export async function createFixtureVault(files: FixtureFiles): Promise<string> {
-  const vaultDir = await makeTempDir("vault");
+/** How a fixture vault is set up beyond the committed files. */
+export interface FixtureOptions {
+  /** Files written after the commit and left untracked (never `git add`ed). */
+  untracked?: FixtureFiles;
+  /** Vault paths deleted from the working tree after the commit, so git still tracks them. */
+  deleted?: string[];
+  /** `false` makes a plain folder with no git repo; `untracked` and `deleted` then just write or remove files. */
+  git?: boolean;
+}
+
+async function writeFiles(vaultDir: string, files: FixtureFiles): Promise<void> {
   for (const [vaultPath, contents] of Object.entries(files)) {
     const target = join(vaultDir, ...vaultPath.split("/"));
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, contents);
   }
-  await git(vaultDir, "init", "--quiet", "--initial-branch=main");
-  await git(vaultDir, "add", "-A");
-  await git(
-    vaultDir,
-    "-c", "user.name=Fixture",
-    "-c", "user.email=fixture@example.invalid",
-    "-c", "commit.gpgsign=false",
-    "commit", "--quiet", "--allow-empty", "-m", "fixture vault",
-  );
+}
+
+/**
+ * Write the given vault files to a fresh temporary directory and commit them
+ * to a new git repo, the way CI checks the vault out. Returns the vault dir.
+ */
+export async function createFixtureVault(files: FixtureFiles, options: FixtureOptions = {}): Promise<string> {
+  const vaultDir = await makeTempDir("vault");
+  await writeFiles(vaultDir, files);
+  if (options.git !== false) {
+    await git(vaultDir, "init", "--quiet", "--initial-branch=main");
+    await git(vaultDir, "add", "-A");
+    await git(
+      vaultDir,
+      "-c", "user.name=Fixture",
+      "-c", "user.email=fixture@example.invalid",
+      "-c", "commit.gpgsign=false",
+      "commit", "--quiet", "--allow-empty", "-m", "fixture vault",
+    );
+  }
+  await writeFiles(vaultDir, options.untracked ?? {});
+  for (const vaultPath of options.deleted ?? []) {
+    await rm(join(vaultDir, ...vaultPath.split("/")));
+  }
   return vaultDir;
 }
 
@@ -116,6 +136,6 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
 }
 
 /** One call: create a fixture vault from these files and build the site from it. */
-export async function buildFixtureVault(files: FixtureFiles): Promise<SiteBuild> {
-  return buildSite({ vaultDir: await createFixtureVault(files) });
+export async function buildFixtureVault(files: FixtureFiles, options?: FixtureOptions): Promise<SiteBuild> {
+  return buildSite({ vaultDir: await createFixtureVault(files, options) });
 }

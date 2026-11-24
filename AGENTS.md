@@ -29,12 +29,12 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 
 ### Layout
 
-- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs.
+- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error.
 - `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug.
 - `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
 - `src/pages/[...slug].astro`: one viewer page per vault file, at `/<slug>/`.
 - `astro.config.mjs`: static output, trailing-slash directory URLs. Astro handles routing and layout only.
-- `test/harness/site-build.ts`: the seam-1 harness. `buildFixtureVault({ "Path/Note.md": "..." })` writes a made-up vault to a temp dir, commits it to git, runs the real build into its own temp out dir, and returns `{ ok, output, outDir, hasPage(url), page(url) }`; `page` returns a DOM document to query with selectors. `createFixtureVault` + `buildSite({ vaultDir })` split those steps (`vaultDir: null` leaves `VAULT_DIR` unset). Call `cleanupTempDirs` in `afterAll`.
+- `test/harness/site-build.ts`: the seam-1 harness. `buildFixtureVault({ "Path/Note.md": "..." })` writes a made-up vault to a temp dir, commits it to git, runs the real build into its own temp out dir, and returns `{ ok, output, outDir, hasPage(url), page(url) }`; `page` returns a DOM document to query with selectors. `createFixtureVault` + `buildSite({ vaultDir })` split those steps (`vaultDir: null` leaves `VAULT_DIR` unset). `buildFixtureVault` and `createFixtureVault` take an optional second argument `{ untracked, deleted, git }`: `untracked` files are written after the commit, `deleted` paths are removed after it (git still tracks them), and `git: false` makes a plain folder with no repo. Put a `.gitignore` in the files to ignore paths. Call `cleanupTempDirs` in `afterAll`.
 - `test/build/`: build tests, one file per feature area.
 
 ## Agent skills
