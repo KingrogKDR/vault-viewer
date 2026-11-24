@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { buildFixtureVault, cleanupTempDirs } from "../harness/site-build";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { buildFixtureVault, cleanupTempDirs, type SiteBuild } from "../harness/site-build";
 
 afterAll(cleanupTempDirs);
 
@@ -24,6 +26,17 @@ function fileTree(doc: Document): Element {
   const nav = doc.querySelector("nav.file-tree");
   if (!nav) throw new Error("no file tree on the page");
   return nav;
+}
+
+/** All CSS a page uses: inline <style> elements plus stylesheets linked from the build output. */
+async function pageCss(build: SiteBuild, doc: Document): Promise<string> {
+  const inline = [...doc.querySelectorAll("style")].map((s) => s.textContent ?? "");
+  const linked = await Promise.all(
+    [...doc.querySelectorAll('link[rel="stylesheet"]')].map((link) =>
+      readFile(join(build.outDir, ...link.getAttribute("href")!.split("/").filter(Boolean)), "utf8"),
+    ),
+  );
+  return [...inline, ...linked].join("\n");
 }
 
 describe("file tree", () => {
@@ -121,5 +134,27 @@ describe("file tree", () => {
     const doc = await build.page("/recipes/soup/");
     const marked = [...fileTree(doc).querySelectorAll('[aria-current="page"]')];
     expect(marked.map((el) => el.getAttribute("href"))).toEqual(["/recipes/soup/"]);
+  }, 30_000);
+
+  test("on narrow screens a menu button shows and hides the tree without JavaScript", async () => {
+    const build = await buildFixtureVault({ "Inbox.md": "# Inbox\n" });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/inbox/");
+    const toggle = doc.querySelector('input[type="checkbox"]#file-tree-toggle');
+    expect(toggle).not.toBeNull();
+    expect(doc.querySelector('label[for="file-tree-toggle"]')?.textContent?.trim()).toBe("Files");
+    // The checkbox precedes the tree as a sibling, so `:checked ~ .file-tree` can reveal it.
+    expect(toggle!.parentElement).toBe(fileTree(doc).parentElement);
+    expect([...toggle!.parentElement!.children].indexOf(fileTree(doc))).toBeGreaterThan(
+      [...toggle!.parentElement!.children].indexOf(toggle!),
+    );
+    expect(doc.querySelectorAll("script")).toHaveLength(0);
+    const css = (await pageCss(build, doc)).replace(/\s+/g, " ");
+    // Inside a narrow-screen media query (`max-width:` or the minifier's `width<=`), the tree
+    // starts hidden and the checked toggle shows it.
+    const narrow = css.match(/@media\s*\((?:max-width:|width\s*<=)[^)]*\)\s*\{(.*?\})\s*\}/)?.[1] ?? "";
+    expect(narrow).toMatch(/(^|\})\s*\.file-tree\s*\{[^}]*display:\s*none/);
+    expect(narrow).toMatch(/#file-tree-toggle:checked\s*~\s*\.file-tree\s*\{[^}]*display:\s*block/);
   }, 30_000);
 });
