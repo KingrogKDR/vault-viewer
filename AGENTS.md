@@ -18,7 +18,24 @@ A read-only, offline-capable website for one person's Obsidian vault. It is buil
 
 Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local builds read the vault from `VAULT_DIR`.
 
-<!-- Add layout and commands here as each milestone lands. Keep this file a map: what lives where, and how to run it. -->
+<!-- Keep this file a map: what lives where, and how to run it. Update it as each milestone lands. -->
+
+### Commands
+
+- `bun install`: install dependencies.
+- `VAULT_DIR=/path/to/vault bun run dev`: local preview with reload.
+- `VAULT_DIR=/path/to/vault bun run build`: build the site into `dist/`. Without a usable `VAULT_DIR` the build fails and says why.
+- `bun test`: the seam-1 build tests. They need no vault: each test builds its own fixture vault.
+
+### Layout
+
+- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs.
+- `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug.
+- `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
+- `src/pages/[...slug].astro`: one viewer page per vault file, at `/<slug>/`.
+- `astro.config.mjs`: static output, trailing-slash directory URLs. Astro handles routing and layout only.
+- `test/harness/site-build.ts`: the seam-1 harness. `buildFixtureVault({ "Path/Note.md": "..." })` writes a made-up vault to a temp dir, commits it to git, runs the real build into its own temp out dir, and returns `{ ok, output, outDir, hasPage(url), page(url) }`; `page` returns a DOM document to query with selectors. `createFixtureVault` + `buildSite({ vaultDir })` split those steps (`vaultDir: null` leaves `VAULT_DIR` unset). Call `cleanupTempDirs` in `afterAll`.
+- `test/build/`: build tests, one file per feature area.
 
 ## Agent skills
 
