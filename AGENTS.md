@@ -26,6 +26,7 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 - `VAULT_DIR=/path/to/vault bun run dev`: local preview with reload.
 - `VAULT_DIR=/path/to/vault bun run build`: build the site into `dist/`. Without a usable `VAULT_DIR` the build fails and says why.
 - `bun test`: the seam-1 build tests. They need no vault: each test builds its own fixture vault.
+- CI (`.github/workflows/ci.yml`) runs `bun install --frozen-lockfile`, `bunx tsc --noEmit` and `bun test` on every PR to `main` and every push to it, with no vault and no secrets. PRs must be green before merging.
 
 ### Layout
 
