@@ -3,6 +3,15 @@ import { buildFixtureVault, cleanupTempDirs, type SiteBuild } from "../harness/s
 
 afterAll(cleanupTempDirs);
 
+// A valid 1x1 transparent PNG, so a followed image src can be checked byte for byte.
+const PNG_1X1 = new Uint8Array([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+  0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+  0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+  0x42, 0x60, 0x82,
+]);
+
 /** The href of the note link whose text is `text`, on the page at `url`. */
 async function hrefOf(build: SiteBuild, url: string, text: string): Promise<string | null> {
   const links = [...(await build.page(url)).querySelectorAll("article.note a")];
@@ -91,5 +100,127 @@ describe("relative links and images resolve the way Obsidian does", () => {
     expect(await headingAt(build, (await hrefOf(build, "/garden/tomatoes/", "basil"))!)).toBe("Basil");
     expect(await headingAt(build, (await hrefOf(build, "/garden/tomatoes/", "soup"))!)).toBe("Soup");
     expect(await headingAt(build, (await hrefOf(build, "/garden/tomatoes/", "the release"))!)).toBe("Release 1.2");
+  }, 30_000);
+
+  test("an image's src points at the raw file of the vault file it resolves to", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Tomatoes.md": "# Tomatoes\n\n![first leaf](photos/Leaf.png)\n",
+      "Garden/photos/Leaf.png": PNG_1X1,
+    });
+
+    expect(build.ok).toBe(true);
+    const src = (await build.page("/garden/tomatoes/")).querySelector('article.note img[alt="first leaf"]')!.getAttribute("src")!;
+    expect(src).toBe("/raw/garden/photos/leaf.png");
+    expect(await build.bytes(decodeURI(src))).toEqual(PNG_1X1);
+  }, 30_000);
+
+  test("a link's #fragment is kept on the resolved URL and names a heading on the target page", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Tomatoes.md": "# Tomatoes\n\nWater like [basil](Basil.md#watering).\n",
+      "Garden/Basil.md": "# Basil\n\n## Watering\n\nDaily.\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const href = (await hrefOf(build, "/garden/tomatoes/", "basil"))!;
+    expect(href).toBe("/garden/basil/#watering");
+    const [url, fragment] = href.split("#");
+    expect((await build.page(url!)).getElementById(fragment!)?.textContent).toBe("Watering");
+  }, 30_000);
+
+  test("URL-encoded and non-ASCII targets resolve", async () => {
+    const build = await buildFixtureVault({
+      "Trips/Lisbon.md": [
+        "# Lisbon",
+        "",
+        "Read [the plan](Trip%20Plan.md) and [the bracketed plan](<Trip Plan.md>).",
+        "",
+        "![old map](Old%20Maps/Caf%C3%A9.png)",
+        "",
+      ].join("\n"),
+      "Trips/Trip Plan.md": "# Trip plan\n",
+      "Trips/Old Maps/Café.png": PNG_1X1,
+    });
+
+    expect(build.ok).toBe(true);
+    expect(await headingAt(build, (await hrefOf(build, "/trips/lisbon/", "the plan"))!)).toBe("Trip plan");
+    expect(await headingAt(build, (await hrefOf(build, "/trips/lisbon/", "the bracketed plan"))!)).toBe("Trip plan");
+    const src = (await build.page("/trips/lisbon/")).querySelector('article.note img[alt="old map"]')!.getAttribute("src")!;
+    expect(await build.bytes(decodeURI(src))).toEqual(PNG_1X1);
+  }, 30_000);
+
+  test("a link or image that resolves to nothing is kept and marked as a broken link", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Tomatoes.md": "# Tomatoes\n\nAsk [the neighbour](Neighbour.md) about ![the blight](blight.png), or see [basil](Basil.md).\n",
+      "Garden/Basil.md": "# Basil\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/garden/tomatoes/")).querySelector("article.note")!;
+    expect([...note.querySelectorAll(".broken-link")].map((el) => [el.tagName, el.textContent || el.getAttribute("alt")])).toEqual([
+      ["A", "the neighbour"],
+      ["IMG", "the blight"],
+    ]);
+    expect(note.querySelector('a[href="/garden/basil/"]')?.classList.contains("broken-link")).toBe(false);
+  }, 30_000);
+
+  test("external URLs, mailto: and #anchor links are left exactly as written", async () => {
+    const written = [
+      "https://example.com/Basil.md",
+      "http://example.org/a?b=c#d",
+      "//cdn.example.net/Basil.md",
+      "mailto:gardener@example.invalid",
+      "tel:+15550100",
+      "#watering",
+    ];
+    const build = await buildFixtureVault({
+      "Basil.md": [
+        "# Basil",
+        "",
+        ...written.map((href, i) => `[link ${i}](${href})`),
+        "",
+        "![remote photo](https://example.com/leaf.png)",
+        "",
+        "## Watering",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/basil/")).querySelector("article.note")!;
+    expect(written.map((_, i) => [...note.querySelectorAll("a")].find((a) => a.textContent === `link ${i}`)?.getAttribute("href"))).toEqual(
+      written,
+    );
+    expect(note.querySelector('img[alt="remote photo"]')?.getAttribute("src")).toBe("https://example.com/leaf.png");
+    expect(note.querySelectorAll(".broken-link").length).toBe(0);
+  }, 30_000);
+
+  test("links, images and media written as raw HTML resolve too, and a link to an attachment opens its viewer page", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Tomatoes.md": [
+        "# Tomatoes",
+        "",
+        '<p><a href="Basil.md">html basil</a> <img src="photos/Leaf.png" alt="html leaf"></p>',
+        "",
+        '<video src="clips/Growth.mp4"></video>',
+        "",
+        '<audio><source src="clips/Rain.mp3"></audio>',
+        "",
+        "Full size: [the leaf](photos/Leaf.png).",
+        "",
+      ].join("\n"),
+      "Garden/Basil.md": "# Basil\n",
+      "Garden/photos/Leaf.png": PNG_1X1,
+      "Garden/clips/Growth.mp4": "not really a video",
+      "Garden/clips/Rain.mp3": "not really audio",
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/garden/tomatoes/")).querySelector("article.note")!;
+    expect(await headingAt(build, (await hrefOf(build, "/garden/tomatoes/", "html basil"))!)).toBe("Basil");
+    expect(await build.bytes(decodeURI(note.querySelector('img[alt="html leaf"]')!.getAttribute("src")!))).toEqual(PNG_1X1);
+    expect(await build.file(decodeURI(note.querySelector("video")!.getAttribute("src")!))).toBe("not really a video");
+    expect(await build.file(decodeURI(note.querySelector("audio source")!.getAttribute("src")!))).toBe("not really audio");
+    const viewer = await build.page(decodeURI((await hrefOf(build, "/garden/tomatoes/", "the leaf"))!));
+    expect(viewer.querySelector("main h1")?.textContent).toBe("Leaf.png");
   }, 30_000);
 });
