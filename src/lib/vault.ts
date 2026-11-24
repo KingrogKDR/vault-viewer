@@ -59,25 +59,52 @@ async function listVaultPaths(dir: string): Promise<string[]> {
   return paths.filter((path) => !path.split("/").some((segment) => segment.startsWith(".")));
 }
 
+/**
+ * Whether the vault's listing must come from git. Fails closed: a vault with a
+ * `.git` entry is always a git vault, and only git's own "not a git repository"
+ * answer lets a vault without one fall back to the folder walk. Anything else
+ * (git missing, dubious ownership, a broken repo) fails the build, because the
+ * walk ignores `.gitignore` and would publish ignored folders.
+ */
 async function isGitRepo(dir: string): Promise<boolean> {
+  if (existsSync(join(dir, ".git"))) return true;
   try {
-    const { stdout } = await execFileAsync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: dir });
-    return stdout.trim() === "true";
-  } catch {
-    return false;
+    return (await runGit(dir, ["rev-parse", "--is-inside-work-tree"])).trim() === "true";
+  } catch (error) {
+    if (/not a git repository/.test(String((error as { stderr?: unknown }).stderr))) return false;
+    throw gitFailure(dir, error);
   }
 }
 
 /** Tracked files plus untracked files that aren't ignored, minus tracked files missing from the working tree. */
 async function gitListing(dir: string): Promise<string[]> {
-  const { stdout } = await execFileAsync(
-    "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
-    { cwd: dir, maxBuffer: 256 * 1024 * 1024 },
-  );
+  let stdout: string;
+  try {
+    stdout = await runGit(dir, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]);
+  } catch (error) {
+    throw gitFailure(dir, error);
+  }
   const listed = [...new Set(stdout.split("\0").filter(Boolean))];
   const present = await Promise.all(listed.map((path) => isFileOnDisk(join(dir, ...path.split("/")))));
   return listed.filter((_, i) => present[i]);
+}
+
+/** Run git in `dir` with untranslated messages, returning stdout. */
+async function runGit(dir: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync("git", args, {
+    cwd: dir,
+    env: { ...process.env, LC_ALL: "C" },
+    maxBuffer: 256 * 1024 * 1024,
+  });
+  return stdout;
+}
+
+function gitFailure(dir: string, error: unknown): Error {
+  const { stderr, message } = error as { stderr?: string; message?: string };
+  const reason = stderr?.trim() || message || String(error);
+  return new Error(
+    `VAULT_DIR points to ${dir}, but git failed there, so the build stops rather than walk the folder and publish git-ignored files: ${reason}`,
+  );
 }
 
 async function isFileOnDisk(absolutePath: string): Promise<boolean> {

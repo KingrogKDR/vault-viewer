@@ -1,5 +1,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { buildFixtureVault, cleanupTempDirs } from "../harness/site-build";
+import { rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { buildFixtureVault, buildSite, cleanupTempDirs, createFixtureVault } from "../harness/site-build";
 
 afterAll(cleanupTempDirs);
 
@@ -76,5 +78,40 @@ describe("the vault's file list follows git", () => {
     expect(build.hasPage("/loose/")).toBe(true);
     expect(build.hasPage("/.obsidian/app/")).toBe(false);
     expect(build.hasPage("/journal/.private/secret/")).toBe(false);
+  }, 30_000);
+
+  // A git vault must never fall back to the folder walk: the walk ignores
+  // .gitignore and would publish the owner's desktop-only folders.
+  test("a git vault whose git is broken fails the build instead of walking the folder", async () => {
+    const vault = await createFixtureVault({
+      ".gitignore": "Desktop Only/\n",
+      "Desktop Only/Plans.md": "# Plans\n",
+      "Kept.md": "# Kept\n",
+    });
+    await writeFile(join(vault, ".git", "HEAD"), "garbage\n");
+
+    const build = await buildSite({ vaultDir: vault });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain(vault);
+    expect(build.output).toMatch(/not a git repository/);
+    expect(build.hasPage("/desktop-only/plans/")).toBe(false);
+  }, 30_000);
+
+  test("a vault whose .git file points nowhere fails the build naming git's error", async () => {
+    const vault = await createFixtureVault({
+      ".gitignore": "Desktop Only/\n",
+      "Desktop Only/Plans.md": "# Plans\n",
+      "Kept.md": "# Kept\n",
+    });
+    await rm(join(vault, ".git"), { recursive: true });
+    await writeFile(join(vault, ".git"), "gitdir: /nonexistent\n");
+
+    const build = await buildSite({ vaultDir: vault });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain(vault);
+    expect(build.output).toMatch(/gitfile does not point to a valid repository/);
+    expect(build.hasPage("/desktop-only/plans/")).toBe(false);
   }, 30_000);
 });

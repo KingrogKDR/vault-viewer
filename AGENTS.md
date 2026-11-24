@@ -29,7 +29,7 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 
 ### Layout
 
-- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004).
+- `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error.
 - `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug.
 - `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
 - `src/pages/[...slug].astro`: one viewer page per vault file, at `/<slug>/`.
