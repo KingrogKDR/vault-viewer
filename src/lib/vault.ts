@@ -9,6 +9,7 @@ import { join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { slugFor } from "./slug";
 import { parseFrontmatter, type Frontmatter } from "./frontmatter";
+import { openingHeadingText } from "./opening-heading";
 
 const execFileAsync = promisify(execFile);
 
@@ -21,6 +22,8 @@ export interface VaultFile {
   slug: string;
   /** Parsed YAML frontmatter; `{}` when the note has none or it is malformed. */
   frontmatter: Frontmatter;
+  /** Plain text of the note's opening `# Heading`, if it opens with one. */
+  openingHeading?: string;
 }
 
 export interface Vault {
@@ -47,8 +50,10 @@ export async function readVault(dir: string): Promise<Vault> {
     // Only notes get viewer pages until attachments land (#7).
     if (!path.toLowerCase().endsWith(".md")) continue;
     const absolutePath = join(dir, ...path.split("/"));
-    const frontmatter = parseFrontmatter(await readFile(absolutePath, "utf8"));
-    files.push({ path, absolutePath, kind: "note", slug: slugFor(path), frontmatter });
+    const source = await readFile(absolutePath, "utf8");
+    const frontmatter = parseFrontmatter(source);
+    const openingHeading = openingHeadingText(source);
+    files.push({ path, absolutePath, kind: "note", slug: slugFor(path), frontmatter, openingHeading });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertUniqueSlugs(files);

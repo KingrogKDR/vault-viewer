@@ -31,7 +31,8 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 
 - `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error.
 - `src/lib/frontmatter.ts`: `parseFrontmatter`; the vault reader puts the result on each note as `frontmatter` (`{}` when missing or malformed).
-- `src/lib/note-title.ts`: `noteTitle`, the one place a note's displayed title is chosen (frontmatter `title`, else file name without `.md`).
+- `src/lib/note-title.ts`: `noteTitle`, the one place a note's displayed title is chosen (frontmatter `title`, else the opening `# Heading`, else file name without `.md`). The page shows it as the one h1.
+- `src/lib/opening-heading.ts`: what counts as a note's opening heading (an h1 as the first block after frontmatter): its text for the vault reader, and the remark plugin that drops it from the rendered body.
 - `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug, and `viewerUrlFor`, which turns a slug into a link href. Slugs keep non-ASCII letters raw (output dirs too), so build every link href with `viewerUrlFor`, never `/${slug}/`.
 - `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
 - `src/lib/file-tree.ts`: `buildFileTree(files)`, the file tree's data. Arranges any vault files (`{ path, slug }`) into nested folders, folders first, names in natural case-insensitive order.
