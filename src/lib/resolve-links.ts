@@ -62,7 +62,9 @@ export function rehypeResolveLinks({ vault, fromPath }: ResolveLinksOptions) {
       if (file) {
         node.properties[target.attribute] = target.urlFor(file) + fragment;
       } else {
-        // Left as written, but shown as broken, never dropped.
+        // Kept and shown as broken, never dropped, but without its target:
+        // it would only 404, and it may name an unpublished note.
+        delete node.properties[target.attribute];
         const classes = node.properties.className;
         node.properties.className = [...(Array.isArray(classes) ? classes : []), "broken-link"];
       }

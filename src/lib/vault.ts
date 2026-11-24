@@ -1,6 +1,8 @@
 // Vault reader: turns the vault directory into the list of vault files.
 // The listing follows the vault's git (ADR-0004). Every vault file gets a kind,
 // which picks its viewer; notes also carry their parsed frontmatter.
+// Unpublished notes (`publish: false`) are dropped here, so the rest of the
+// site never sees them.
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -97,7 +99,10 @@ export async function readVault(dir: string): Promise<Vault> {
     const kind = kindFor(path);
     if (kind === "note") {
       const source = await readFile(absolutePath, "utf8");
-      files.push({ ...base, kind, frontmatter: parseFrontmatter(source), openingHeading: openingHeadingText(source) });
+      const frontmatter = parseFrontmatter(source);
+      // An unpublished note stops here, so nothing downstream ever sees it.
+      if (isUnpublished(frontmatter)) continue;
+      files.push({ ...base, kind, frontmatter, openingHeading: openingHeadingText(source) });
     } else {
       files.push({ ...base, kind });
     }
@@ -105,6 +110,16 @@ export async function readVault(dir: string): Promise<Vault> {
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertNoOutputClashes(files);
   return { dir, files };
+}
+
+/**
+ * Whether a note is an unpublished note: its frontmatter `publish` is `false`,
+ * or the string "false" in any case. Anything else, malformed frontmatter
+ * included, leaves the note published.
+ */
+function isUnpublished(frontmatter: Frontmatter): boolean {
+  const publish = frontmatter.publish;
+  return publish === false || (typeof publish === "string" && publish.toLowerCase() === "false");
 }
 
 /**

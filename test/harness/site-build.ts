@@ -100,6 +100,8 @@ export interface SiteBuild {
   bytes(path: string): Promise<Uint8Array>;
   /** Paths (`/`-separated, relative to the output dir) of every `.html` file the build wrote, sorted. */
   htmlPages(): Promise<string[]>;
+  /** Paths (`/`-separated, relative to the output dir, decoded) of every file the build wrote, sorted. */
+  outputFiles(): Promise<string[]>;
 }
 
 export interface BuildOptions {
@@ -126,6 +128,13 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
     proc.exited,
   ]);
 
+  const outputFiles = async () => {
+    const entries = await readdir(outDir, { recursive: true, withFileTypes: true });
+    return entries
+      .filter((entry) => entry.isFile())
+      .map((entry) => relative(outDir, join(entry.parentPath, entry.name)).split(sep).join("/"))
+      .sort();
+  };
   const fileFor = (url: string) => join(outDir, ...url.split("/").filter(Boolean), "index.html");
 
   return {
@@ -150,12 +159,9 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
     },
     async htmlPages() {
       // Files only: an attachment's viewer page dir is named like `intro.html/`.
-      const entries = await readdir(outDir, { recursive: true, withFileTypes: true });
-      return entries
-        .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
-        .map((entry) => relative(outDir, join(entry.parentPath, entry.name)).split(sep).join("/"))
-        .sort();
+      return (await outputFiles()).filter((path) => path.endsWith(".html"));
     },
+    outputFiles,
   };
 }
 
