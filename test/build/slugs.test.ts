@@ -49,6 +49,21 @@ describe("slugs", () => {
     expect((await build.page("/हिन्दी-नोट्स/")).querySelector("h1")?.textContent).toBe("Hindi notes");
   }, 30_000);
 
+  test("file tree links to non-ASCII notes are percent-encoded per segment and reach the page", async () => {
+    const build = await buildFixtureVault({
+      "Inbox.md": "# Inbox\n",
+      "Été/Café Menu.md": "# Café menu\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const link = [...(await build.page("/inbox/")).querySelectorAll("nav.file-tree a")].find(
+      (a) => a.textContent === "Café Menu",
+    )!;
+    const href = link.getAttribute("href")!;
+    expect(href).toBe("/%C3%A9t%C3%A9/caf%C3%A9-menu/");
+    expect((await build.page(decodeURI(href))).querySelector("h1")?.textContent).toBe("Café menu");
+  }, 30_000);
+
   test("two vault files with the same slug fail the build, naming both vault paths", async () => {
     const build = await buildFixtureVault({
       "Reading List.md": "# Reading list\n",

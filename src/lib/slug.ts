@@ -21,3 +21,11 @@ export function slugFor(vaultPath: string): string {
     )
     .join("/");
 }
+
+/**
+ * Site URL of a slug's viewer page, `/<slug>/`, for use in links. Slugs keep
+ * non-ASCII letters raw, so each segment is percent-encoded here.
+ */
+export function viewerUrlFor(slug: string): string {
+  return `/${slug.split("/").map(encodeURIComponent).join("/")}/`;
+}

@@ -30,7 +30,7 @@ Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local
 ### Layout
 
 - `src/lib/vault.ts`: the vault reader. Reads `VAULT_DIR` and lists vault files with their slugs. The list comes from `git ls-files` when the vault is a git repo, else a folder walk (ADR-0004). It fails closed: a vault with a `.git` entry never falls back to the walk, and any git failure other than "not a git repository" fails the build naming the path and git's error.
-- `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug.
+- `src/lib/slug.ts`: `slugFor`, the only place a vault path becomes a slug, and `viewerUrlFor`, which turns a slug into a link href. Slugs keep non-ASCII letters raw (output dirs too), so build every link href with `viewerUrlFor`, never `/${slug}/`.
 - `src/lib/render-note.ts`: our unified pipeline that renders a note to HTML (ADR-0003). New syntax lands here as remark/rehype plugins.
 - `src/lib/file-tree.ts`: `buildFileTree(files)`, the file tree's data. Arranges any vault files (`{ path, slug }`) into nested folders, folders first, names in natural case-insensitive order.
 - `src/components/FileTree.astro`: renders file tree entries as nested `ul` > `li` > `details`/`a`. Opens the current vault file's ancestor folders and marks its entry `aria-current="page"`.
