@@ -14,4 +14,18 @@ describe("the vault's file list follows git", () => {
     expect(build.hasPage("/trips/lisbon/")).toBe(true);
     expect(build.hasPage("/draft-ideas/")).toBe(true);
   }, 30_000);
+
+  test("notes matched by the vault's .gitignore get no page", async () => {
+    const build = await buildFixtureVault({
+      ".gitignore": "Desktop Only/\nscratch.md\n",
+      "Desktop Only/Plans.md": "# Plans\n",
+      "scratch.md": "# Scratch\n",
+      "Kept.md": "# Kept\n",
+    });
+
+    expect(build.ok).toBe(true);
+    expect(build.hasPage("/kept/")).toBe(true);
+    expect(build.hasPage("/desktop-only/plans/")).toBe(false);
+    expect(build.hasPage("/scratch/")).toBe(false);
+  }, 30_000);
 });
