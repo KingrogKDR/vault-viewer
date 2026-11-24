@@ -148,7 +148,7 @@ describe("relative links and images resolve the way Obsidian does", () => {
     expect(await build.bytes(decodeURI(src))).toEqual(PNG_1X1);
   }, 30_000);
 
-  test("a link or image that resolves to nothing is kept and marked as a broken link", async () => {
+  test("a link or image that resolves to nothing keeps its text, loses its target, and is marked as a broken link", async () => {
     const build = await buildFixtureVault({
       "Garden/Tomatoes.md": "# Tomatoes\n\nAsk [the neighbour](Neighbour.md) about ![the blight](blight.png), or see [basil](Basil.md).\n",
       "Garden/Basil.md": "# Basil\n",
@@ -156,10 +156,14 @@ describe("relative links and images resolve the way Obsidian does", () => {
 
     expect(build.ok).toBe(true);
     const note = (await build.page("/garden/tomatoes/")).querySelector("article.note")!;
-    expect([...note.querySelectorAll(".broken-link")].map((el) => [el.tagName, el.textContent || el.getAttribute("alt")])).toEqual([
-      ["A", "the neighbour"],
-      ["IMG", "the blight"],
+    expect(
+      [...note.querySelectorAll(".broken-link")].map((el) => [el.tagName, el.textContent || el.getAttribute("alt"), el.getAttribute("href") ?? el.getAttribute("src")]),
+    ).toEqual([
+      ["A", "the neighbour", null],
+      ["IMG", "the blight", null],
     ]);
+    expect(note.innerHTML).not.toContain("Neighbour");
+    expect(note.innerHTML).not.toContain("blight.png");
     expect(note.querySelector('a[href="/garden/basil/"]')?.classList.contains("broken-link")).toBe(false);
   }, 30_000);
 
