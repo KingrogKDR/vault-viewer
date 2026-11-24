@@ -1,0 +1,116 @@
+import { afterAll, describe, expect, test } from "bun:test";
+import { buildFixtureVault, cleanupTempDirs } from "../harness/site-build";
+
+afterAll(cleanupTempDirs);
+
+describe("GFM, raw HTML and heading anchors in a note", () => {
+  test("GitHub-flavoured markdown renders tables, task lists, strikethrough, autolinks and fenced code", async () => {
+    const build = await buildFixtureVault({
+      "Pantry.md": [
+        "# Pantry",
+        "",
+        "| Item | Count |",
+        "| ---- | ----- |",
+        "| oats | 3 |",
+        "| rice | 1 |",
+        "",
+        "- [x] buy flour",
+        "- [ ] buy yeast",
+        "",
+        "We are ~~out of~~ low on sugar.",
+        "",
+        "Order more at https://example.com/shop today.",
+        "",
+        "```js",
+        "restock('sugar');",
+        "```",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/pantry/")).querySelector("article.note")!;
+
+    expect([...note.querySelectorAll("table thead th")].map((th) => th.textContent)).toEqual(["Item", "Count"]);
+    expect(
+      [...note.querySelectorAll("table tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent)),
+    ).toEqual([
+      ["oats", "3"],
+      ["rice", "1"],
+    ]);
+
+    const tasks = [...note.querySelectorAll("li")].filter((li) => li.querySelector('input[type="checkbox"]'));
+    expect(tasks.map((li) => [li.textContent?.trim(), li.querySelector("input")!.hasAttribute("checked")])).toEqual([
+      ["buy flour", true],
+      ["buy yeast", false],
+    ]);
+
+    expect(note.querySelector("del")?.textContent).toBe("out of");
+
+    expect(note.querySelector('a[href="https://example.com/shop"]')?.textContent).toBe("https://example.com/shop");
+
+    expect(note.querySelector("pre > code.language-js")?.textContent).toBe("restock('sugar');\n");
+  }, 30_000);
+
+  test("raw HTML written in a note is kept in the page", async () => {
+    const build = await buildFixtureVault({
+      "Hike.md": [
+        "# Hike",
+        "",
+        "Start at the car park<br/>and head north.",
+        "",
+        "<details>",
+        "<summary>Packing list</summary>",
+        "",
+        "Water and a map.",
+        "",
+        "</details>",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/hike/")).querySelector("article.note")!;
+
+    expect(note.querySelector("p br")).not.toBeNull();
+    const details = note.querySelector("details")!;
+    expect(details).not.toBeNull();
+    expect(details.querySelector("summary")?.textContent).toBe("Packing list");
+    expect(details.querySelector("p")?.textContent).toBe("Water and a map.");
+  }, 30_000);
+
+  test("every heading gets an id that an in-page #heading link targets", async () => {
+    const build = await buildFixtureVault({
+      "Bike Repair.md": [
+        "# Bike Repair",
+        "",
+        "Skip to [fixing a flat](#fixing-a-flat).",
+        "",
+        "## Tools Needed",
+        "",
+        "## Fixing a Flat",
+        "",
+        "### Notes",
+        "",
+        "### Notes",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/bike-repair/");
+    const note = doc.querySelector("article.note")!;
+
+    expect([...note.querySelectorAll("h1, h2, h3")].map((h) => h.getAttribute("id"))).toEqual([
+      "bike-repair",
+      "tools-needed",
+      "fixing-a-flat",
+      "notes",
+      "notes-1",
+    ]);
+
+    const href = note.querySelector('a[href^="#"]')!.getAttribute("href")!;
+    expect(href).toBe("#fixing-a-flat");
+    expect(doc.getElementById(href.slice(1))?.textContent).toBe("Fixing a Flat");
+  }, 30_000);
+});
