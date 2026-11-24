@@ -11,7 +11,7 @@
 import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve, sep } from "node:path";
+import { dirname, join, relative, resolve, sep } from "node:path";
 import { parseHTML } from "linkedom";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
@@ -149,10 +149,11 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
       return new Uint8Array(await readFile(file));
     },
     async htmlPages() {
-      const entries = await readdir(outDir, { recursive: true });
+      // Files only: an attachment's viewer page dir is named like `intro.html/`.
+      const entries = await readdir(outDir, { recursive: true, withFileTypes: true });
       return entries
-        .map((entry) => entry.split(sep).join("/"))
-        .filter((entry) => entry.endsWith(".html"))
+        .filter((entry) => entry.isFile() && entry.name.endsWith(".html"))
+        .map((entry) => relative(outDir, join(entry.parentPath, entry.name)).split(sep).join("/"))
         .sort();
     },
   };
