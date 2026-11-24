@@ -3,10 +3,11 @@
 
 import { unified } from "unified";
 import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeStringify from "rehype-stringify";
 
-const processor = unified().use(remarkParse).use(remarkRehype).use(rehypeStringify);
+const processor = unified().use(remarkParse).use(remarkGfm).use(remarkRehype).use(rehypeStringify);
 
 /** Render a note's markdown source to an HTML string. */
 export async function renderNote(source: string): Promise<string> {
