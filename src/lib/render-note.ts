@@ -1,8 +1,9 @@
-// Our own markdown pipeline (ADR-0003). GFM, raw HTML, heading ids,
-// frontmatter and the Obsidian plugins slot in here in later tickets.
+// Our own markdown pipeline (ADR-0003): GFM, frontmatter (kept out of the
+// page), raw HTML and heading ids. The Obsidian plugins slot in here later.
 
 import { unified } from "unified";
 import remarkParse from "remark-parse";
+import remarkFrontmatter from "remark-frontmatter";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeRaw from "rehype-raw";
@@ -13,6 +14,7 @@ import rehypeStringify from "rehype-stringify";
 // behind Access (spec, "Markdown renderer").
 const processor = unified()
   .use(remarkParse)
+  .use(remarkFrontmatter)
   .use(remarkGfm)
   .use(remarkRehype, { allowDangerousHtml: true })
   .use(rehypeRaw)
