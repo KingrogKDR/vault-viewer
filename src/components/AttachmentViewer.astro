@@ -1,0 +1,59 @@
+---
+// The viewer for an attachment: its vault path, size and a download link,
+// with images shown inline. Later kinds (pdf, video, ...) add their viewers here.
+import type { Attachment } from "../lib/vault";
+import { rawUrlFor } from "../lib/slug";
+
+interface Props {
+  file: Attachment;
+  /** The attachment's file name, shown as the page heading. */
+  title: string;
+}
+
+const { file, title } = Astro.props;
+const rawUrl = rawUrlFor(file.path);
+
+/** Size for people: bytes below 1 KB, else KB/MB/GB (1024-based) to one decimal, `.0` dropped. */
+function humanSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = bytes / 1024;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit++;
+  }
+  return `${value.toFixed(1).replace(/\.0$/, "")} ${units[unit]}`;
+}
+---
+<article class="attachment">
+  <h1>{title}</h1>
+  {file.kind === "image" && <img class="attachment-image" src={rawUrl} alt={title} />}
+  <dl class="attachment-facts">
+    <dt>Path</dt>
+    <dd><code>{file.path}</code></dd>
+    <dt>Size</dt>
+    <dd>{humanSize(file.size)}</dd>
+  </dl>
+  <p><a class="attachment-download" href={rawUrl} download>Download</a></p>
+</article>
+
+<style>
+  .attachment-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  .attachment-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.25rem 1rem;
+  }
+  .attachment-facts dt {
+    font-weight: 600;
+  }
+  .attachment-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+</style>

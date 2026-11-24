@@ -64,6 +64,17 @@ describe("slugs", () => {
     expect((await build.page(decodeURI(href))).querySelector("h1")?.textContent).toBe("Café menu");
   }, 30_000);
 
+  test("an attachment's slug keeps its extension, lowercased", async () => {
+    const build = await buildFixtureVault({
+      "Inbox.md": "# Inbox\n",
+      "Images/My Photo.PNG": "not really a png",
+    });
+
+    expect(build.ok).toBe(true);
+    expect(build.hasPage("/images/my-photo.png/")).toBe(true);
+    expect(build.hasPage("/images/my-photo/")).toBe(false);
+  }, 30_000);
+
   test("two vault files with the same slug fail the build, naming both vault paths", async () => {
     const build = await buildFixtureVault({
       "Reading List.md": "# Reading list\n",

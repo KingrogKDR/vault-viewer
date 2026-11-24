@@ -27,6 +27,8 @@ beforeAll(async () => {
   build = await buildFixtureVault({
     "Garden Plans.md": "# Garden Plans\n\nTomatoes go by the fence.\n",
     "Recipes/Soup.md": "# Soup\n\nLeeks and potatoes.\n",
+    // An HTML attachment with its own script: its raw file is HTML but not a page.
+    "Lessons/Intro.html": "<!doctype html><title>Intro</title><script>document.title = 'ran';</script>\n",
   });
 }, 30_000);
 
@@ -41,6 +43,14 @@ describe("privacy headers and robots rules", () => {
       "Referrer-Policy": "no-referrer",
       "X-Content-Type-Options": "nosniff",
     });
+  });
+
+  test("_headers sandboxes raw files, so HTML and SVG attachments never run as the site's origin", async () => {
+    expect(build.ok).toBe(true);
+    const rules = parseHeadersFile(await build.file("_headers"));
+    expect(rules.get("/raw/*")).toMatchObject({ "Content-Security-Policy": "sandbox" });
+    // Cloudflare applies every matching rule, so `/*` still sends nosniff and noindex to raw files.
+    expect(rules.get("/*")).toMatchObject({ "X-Content-Type-Options": "nosniff", "X-Robots-Tag": "noindex, nofollow" });
   });
 
   test("robots.txt disallows everything for every user agent", async () => {
@@ -59,9 +69,12 @@ describe("privacy headers and robots rules", () => {
   });
 
   test("every HTML page carries a robots noindex, nofollow meta tag", async () => {
-    const pages = await build.htmlPages();
+    // Raw files are a vault file's own bytes, not pages, so an HTML attachment's raw
+    // file has no meta tag to check. `_headers` sends them X-Robots-Tag instead.
+    const pages = (await build.htmlPages()).filter((path) => !path.startsWith("raw/"));
     expect(pages).toContain("garden-plans/index.html");
     expect(pages).toContain("recipes/soup/index.html");
+    expect(pages).toContain("lessons/intro.html/index.html");
     for (const path of pages) {
       const doc = parseHTML(await build.file(path)).document;
       const robots = doc.querySelector('head meta[name="robots"]');

@@ -29,3 +29,17 @@ export function slugFor(vaultPath: string): string {
 export function viewerUrlFor(slug: string): string {
   return `/${slug.split("/").map(encodeURIComponent).join("/")}/`;
 }
+
+/**
+ * Site URL of a vault file's raw file, for download and embedding:
+ * `/raw/<slug>`, plus `.md` for notes (whose slug drops it). Percent-encoded
+ * per segment, like `viewerUrlFor`.
+ */
+export function rawUrlFor(vaultPath: string): string {
+  return `/raw/${rawPathFor(vaultPath).split("/").map(encodeURIComponent).join("/")}`;
+}
+
+/** Where a vault file's raw file is written under `/raw/`, decoded: its slug, plus `.md` for notes. */
+export function rawPathFor(vaultPath: string): string {
+  return /\.md$/i.test(vaultPath) ? `${slugFor(vaultPath)}.md` : slugFor(vaultPath);
+}

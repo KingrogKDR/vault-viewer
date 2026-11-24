@@ -2,3 +2,9 @@
   X-Robots-Tag: noindex, nofollow
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
+
+# Raw files are vault bytes, not site pages. An HTML or SVG attachment opened
+# here gets an opaque origin and no scripts, so it can never act as the site
+# (its caches, its service worker). The /* rule above still applies.
+/raw/*
+  Content-Security-Policy: sandbox

@@ -61,6 +61,22 @@ describe("file tree", () => {
     expect(tomatoes?.getAttribute("href")).toBe("/garden/vegetables/tomatoes/");
   }, 30_000);
 
+  test("attachments are listed by file name with extension; notes without .md", async () => {
+    const build = await buildFixtureVault({
+      "Garden/Watering.md": "# Watering\n",
+      "Garden/Bed Layout.png": "png",
+      "Garden/Seeds.csv": "name,count\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/garden/watering/");
+    expect(outline(fileTree(doc).querySelector(":scope > ul"))).toEqual([
+      { folder: "Garden", open: true, entries: ["Bed Layout.png", "Seeds.csv", "Watering"] },
+    ]);
+    const layout = [...fileTree(doc).querySelectorAll("a")].find((a) => a.textContent === "Bed Layout.png");
+    expect(layout?.getAttribute("href")).toBe("/garden/bed-layout.png/");
+  }, 30_000);
+
   test("folders come before files", async () => {
     const build = await buildFixtureVault({
       "Apples.md": "# Apples\n",
