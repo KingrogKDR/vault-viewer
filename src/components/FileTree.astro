@@ -21,7 +21,7 @@ const { entries, current } = Astro.props;
         </details>
       </li>
     ) : (
-      <li><a href={entry.href}>{entry.name}</a></li>
+      <li><a href={entry.href} aria-current={entry.path === current ? "page" : undefined}>{entry.name}</a></li>
     ),
   )}
 </ul>

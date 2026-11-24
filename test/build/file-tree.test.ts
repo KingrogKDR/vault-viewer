@@ -109,4 +109,17 @@ describe("file tree", () => {
       { folder: "Recipes", open: false, entries: ["Soup"] },
     ]);
   }, 30_000);
+
+  test("only the current vault file's entry is marked as the current page", async () => {
+    const build = await buildFixtureVault({
+      "Recipes/Soup.md": "# Soup\n",
+      "Recipes/Bread.md": "# Bread\n",
+      "Soup.md": "# Soup\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/recipes/soup/");
+    const marked = [...fileTree(doc).querySelectorAll('[aria-current="page"]')];
+    expect(marked.map((el) => el.getAttribute("href"))).toEqual(["/recipes/soup/"]);
+  }, 30_000);
 });
