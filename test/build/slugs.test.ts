@@ -60,4 +60,15 @@ describe("slugs", () => {
     expect(build.output).toContain("Reading List.md");
     expect(build.output).toContain("reading-list.md");
   }, 30_000);
+
+  test("vault paths differing only in a run of hyphens collide and fail the build", async () => {
+    const build = await buildFixtureVault({
+      "a-b.md": "# One hyphen\n",
+      "a--b.md": "# Two hyphens\n",
+    });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain("a-b.md");
+    expect(build.output).toContain("a--b.md");
+  }, 30_000);
 });
