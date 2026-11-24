@@ -63,4 +63,28 @@ describe("file tree", () => {
       "Mid",
     ]);
   }, 30_000);
+
+  test("names sort naturally and ignore case", async () => {
+    const build = await buildFixtureVault({
+      "Day 10.md": "# Day 10\n",
+      "Day 2.md": "# Day 2\n",
+      "banana.md": "# banana\n",
+      "Cherry.md": "# Cherry\n",
+      "apple.md": "# apple\n",
+      "week 3/Notes.md": "# Notes\n",
+      "Week 12/Notes.md": "# Notes\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/apple/");
+    expect(outline(fileTree(doc).querySelector(":scope > ul"))).toEqual([
+      { folder: "week 3", open: false, entries: ["Notes"] },
+      { folder: "Week 12", open: false, entries: ["Notes"] },
+      "apple",
+      "banana",
+      "Cherry",
+      "Day 2",
+      "Day 10",
+    ]);
+  }, 30_000);
 });

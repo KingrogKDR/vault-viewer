@@ -54,10 +54,13 @@ export function buildFileTree(files: TreeSource[]): TreeEntry[] {
   return root.entries;
 }
 
+/** Natural, case-insensitive order: `Day 2` before `Day 10`, `apple` before `Banana`. */
+const byName = new Intl.Collator("en", { numeric: true, sensitivity: "base" });
+
 function sortEntries(entries: TreeEntry[]): void {
   entries.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
-    return a.name.localeCompare(b.name);
+    return byName.compare(a.name, b.name) || a.path.localeCompare(b.path);
   });
   for (const entry of entries) if (entry.kind === "folder") sortEntries(entry.entries);
 }
