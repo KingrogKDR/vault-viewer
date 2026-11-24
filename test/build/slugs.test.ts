@@ -15,6 +15,17 @@ describe("slugs", () => {
     expect(build.hasPage("/ideas/v1.2_draft-notes/")).toBe(true);
   }, 30_000);
 
+  test("runs of hyphens, typed or from collapsing, become one hyphen", async () => {
+    const build = await buildFixtureVault({
+      "Rome -- Day 1.md": "# Rome\n",
+      "a---b.md": "# A to B\n",
+    });
+
+    expect(build.ok).toBe(true);
+    expect((await build.page("/rome-day-1/")).querySelector("h1")?.textContent).toBe("Rome");
+    expect(build.hasPage("/a-b/")).toBe(true);
+  }, 30_000);
+
   test("accented letters are kept, lowercased and NFC-normalised", async () => {
     const build = await buildFixtureVault({
       // "Cafe" + combining acute accent: the decomposed (NFD) form of "Café".
