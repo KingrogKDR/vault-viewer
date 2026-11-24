@@ -46,6 +46,7 @@ export async function readVault(dir: string): Promise<Vault> {
     files.push({ path, absolutePath: join(dir, ...path.split("/")), kind: "note", slug: slugFor(path) });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
+  assertUniqueSlugs(files);
   return { dir, files };
 }
 
@@ -120,4 +121,23 @@ async function folderWalk(dir: string): Promise<string[]> {
   return entries
     .filter((entry) => entry.isFile())
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)).split(sep).join("/"));
+}
+
+/** Fail when two vault files share a slug, so neither silently loses its page. */
+function assertUniqueSlugs(files: VaultFile[]): void {
+  const bySlug = new Map<string, VaultFile>();
+  const collisions: string[] = [];
+  for (const file of files) {
+    const other = bySlug.get(file.slug);
+    if (other) {
+      collisions.push(`"${other.path}" and "${file.path}" both have the URL slug "${file.slug}"`);
+    } else {
+      bySlug.set(file.slug, file);
+    }
+  }
+  if (collisions.length > 0) {
+    throw new Error(
+      `Vault files collide on the same URL. Rename one file in each pair:\n${collisions.map((c) => `  - ${c}`).join("\n")}`,
+    );
+  }
 }

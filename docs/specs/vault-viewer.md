@@ -149,7 +149,7 @@ There are three parts:
 - The vault location comes from the `VAULT_DIR` environment variable. The build fails with a clear message if it's missing or doesn't exist.
 
 ### URL scheme
-- Each path segment becomes a slug: NFC-normalised, lowercased, runs of anything other than letters, digits, `.`, `_` and `-` collapsed to one `-`, with leading and trailing `-` trimmed. Notes drop `.md`. Other files keep their extension.
+- Each path segment becomes a slug: NFC-normalised, lowercased, runs of anything other than letters (with their combining marks), digits, `.`, `_` and `-` collapsed to one `-`, then runs of `-` collapsed to one, with leading and trailing `-` trimmed. Notes drop `.md`. Other files keep their extension.
 - Viewer page: `/<slug>/` (trailing slash, directory format). Raw bytes: `/raw/<slug>` for non-notes and `/raw/<slug>.md` for notes. Large files: `/media/<vault path>`.
 - If two files produce the same slug, the build fails and names both files.
 

@@ -1,6 +1,8 @@
 // The file tree's data: the vault's files arranged in their folders.
 // Rendering lives in src/components/FileTree.astro.
 
+import { viewerUrlFor } from "./slug";
+
 /** What the tree needs from a vault file. Any kind of vault file works. */
 export interface TreeSource {
   /** Vault path, `/`-separated. */
@@ -48,7 +50,7 @@ export function buildFileTree(files: TreeSource[]): TreeEntry[] {
       }
       folder = next;
     }
-    folder.entries.push({ kind: "file", name: labelFor(fileName), path: file.path, href: `/${file.slug}/` });
+    folder.entries.push({ kind: "file", name: labelFor(fileName), path: file.path, href: viewerUrlFor(file.slug) });
   }
   sortEntries(root.entries);
   return root.entries;
