@@ -4,6 +4,17 @@ import { buildFixtureVault, cleanupTempDirs } from "../harness/site-build";
 afterAll(cleanupTempDirs);
 
 describe("slugs", () => {
+  test("spaces and punctuation collapse to one hyphen, trimmed at segment ends", async () => {
+    const build = await buildFixtureVault({
+      "Trips & Plans/(2024) Rome, Day 1?!.md": "# Rome\n",
+      "Ideas/v1.2_draft  notes.md": "# Draft\n",
+    });
+
+    expect(build.ok).toBe(true);
+    expect((await build.page("/trips-plans/2024-rome-day-1/")).querySelector("h1")?.textContent).toBe("Rome");
+    expect(build.hasPage("/ideas/v1.2_draft-notes/")).toBe(true);
+  }, 30_000);
+
   test("accented letters are kept, lowercased and NFC-normalised", async () => {
     const build = await buildFixtureVault({
       // "Cafe" + combining acute accent: the decomposed (NFD) form of "Café".
