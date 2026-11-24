@@ -42,4 +42,22 @@ describe("raw files", () => {
     expect(href).toBe("/raw/scripts/makefile");
     expect(await build.file(href)).toBe("all:\n\techo hi\n");
   }, 30_000);
+
+  test("a raw file where another vault file's page needs a folder fails the build, naming both", async () => {
+    // `foo`'s raw file is the file raw/foo; the note's viewer page is raw/foo/index.html.
+    const build = await buildFixtureVault({ "foo": "plain bytes", "raw/foo.md": "# Foo\n" });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain('"foo"');
+    expect(build.output).toContain('"raw/foo.md"');
+  }, 30_000);
+
+  test("a raw file at the same output path as another vault file's page fails the build, naming both", async () => {
+    // Both write raw/notes/index.html.
+    const build = await buildFixtureVault({ "notes/index.html": "<p>hi</p>", "raw/notes.md": "# Notes\n" });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain('"notes/index.html"');
+    expect(build.output).toContain('"raw/notes.md"');
+  }, 30_000);
 });

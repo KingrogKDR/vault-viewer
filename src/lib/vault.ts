@@ -7,7 +7,7 @@ import { existsSync } from "node:fs";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
-import { slugFor } from "./slug";
+import { rawPathFor, slugFor } from "./slug";
 import { parseFrontmatter, type Frontmatter } from "./frontmatter";
 import { openingHeadingText } from "./opening-heading";
 
@@ -103,7 +103,7 @@ export async function readVault(dir: string): Promise<Vault> {
     }
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
-  assertUniqueSlugs(files);
+  assertNoOutputClashes(files);
   return { dir, files };
 }
 
@@ -180,21 +180,45 @@ async function folderWalk(dir: string): Promise<string[]> {
     .map((entry) => relative(dir, join(entry.parentPath, entry.name)).split(sep).join("/"));
 }
 
-/** Fail when two vault files share a slug, so neither silently loses its page. */
-function assertUniqueSlugs(files: VaultFile[]): void {
-  const bySlug = new Map<string, VaultFile>();
-  const collisions: string[] = [];
+/**
+ * Where a vault file is written in the build output: its viewer page and its
+ * raw file. Keep in step with src/pages/[...slug].astro and src/pages/raw/.
+ */
+function outputPathsFor(file: VaultFile): string[] {
+  return [`${file.slug}/index.html`, `raw/${rawPathFor(file.path)}`];
+}
+
+/**
+ * Fail when two vault files would be written to the same place, so neither
+ * silently loses its page or raw file: the same output path (e.g. a shared
+ * slug), or one's file where the other needs a folder (raw file `raw/foo`
+ * against `raw/foo/index.html`, the viewer page of a note `raw/foo.md`).
+ */
+function assertNoOutputClashes(files: VaultFile[]): void {
+  const owners = new Map<string, VaultFile>();
   for (const file of files) {
-    const other = bySlug.get(file.slug);
-    if (other) {
-      collisions.push(`"${other.path}" and "${file.path}" both have the URL slug "${file.slug}"`);
-    } else {
-      bySlug.set(file.slug, file);
+    for (const out of outputPathsFor(file)) if (!owners.has(out)) owners.set(out, file);
+  }
+
+  const clashes = new Set<string>();
+  const clash = (first: VaultFile, second: VaultFile, why: string) => {
+    if (first.path !== second.path) clashes.add(`"${first.path}" and "${second.path}" ${why}`);
+  };
+  for (const file of files) {
+    for (const out of outputPathsFor(file)) {
+      const owner = owners.get(out)!;
+      clash(owner, file, owner.slug === file.slug ? `both have the URL slug "${file.slug}"` : `would both be written to ${out}`);
+      const segments = out.split("/");
+      for (let i = 1; i < segments.length; i++) {
+        const folder = segments.slice(0, i).join("/");
+        const fileThere = owners.get(folder);
+        if (fileThere) clash(fileThere, file, `clash: the first is written to the file ${folder}, which the second needs as a folder for ${out}`);
+      }
     }
   }
-  if (collisions.length > 0) {
+  if (clashes.size > 0) {
     throw new Error(
-      `Vault files collide on the same URL. Rename one file in each pair:\n${collisions.map((c) => `  - ${c}`).join("\n")}`,
+      `Vault files collide in the site's output. Rename one file in each pair:\n${[...clashes].map((c) => `  - ${c}`).join("\n")}`,
     );
   }
 }
