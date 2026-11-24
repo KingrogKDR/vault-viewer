@@ -203,20 +203,38 @@ CHECK_BRANCH="access-check"
 cd "$(dirname "$0")/.."
 [[ -f package.json && -f public/_headers ]] || { printf 'Run this from the vault-viewer repo.\n'; exit 1; }
 
+# _host_of URL: the hostname of an absolute URL (lowercased, no port/userinfo).
+_host_of() {
+  local rest="${1#*://}"
+  rest="${rest%%[/?#]*}"; rest="${rest##*@}"; rest="${rest%%:*}"
+  printf '%s' "${rest,,}"
+}
+
 # access_gate HOST: every URL must be turned away by Access, never served.
-# Prints status + location for each; exits the wizard if any is served.
+# Automatic pass only for a redirect to a *.cloudflareaccess.com host. A bare
+# 401/403 (could be Browser Integrity Check or another block) needs a human
+# to confirm they see the Access login. Anything else stops the wizard.
 access_gate() {
-  local host="$1" url code loc body failed=0
+  local host="$1" url code loc body loc_host failed=0
   for url in "https://$host/" "https://$host/robots.txt" "https://$CHECK_BRANCH.$host/"; do
     body=$(mktemp)
-    read -r code loc < <(curl -s -A "$UA" -o "$body" -w '%{http_code} %{redirect_url}\n' --max-time 20 "$url" || printf '000 -\n')
+    read -r code loc < <(curl -s -A "$UA" -o "$body" -w '%{http_code} %{redirect_url}\n' --max-time 20 "$url" || printf '000\n')
+    loc_host=""
+    [[ -n "${loc:-}" ]] && loc_host=$(_host_of "$loc")
     if [[ "$code" == "200" ]] || grep -q "$PLACEHOLDER_MARK" "$body"; then
       printf '  %s✗ %s → %s (served without login!)%s\n' "$RED" "$url" "$code" "$RESET"
       failed=1
-    elif [[ "$code" =~ ^(302|401|403)$ || "${loc:-}" == *cloudflareaccess.com* ]]; then
-      printf '  %s✓ %s → %s %s%s\n' "$GREEN" "$url" "$code" "${loc:-}" "$RESET"
+    elif [[ "$code" =~ ^30[1-8]$ && "$loc_host" == *.cloudflareaccess.com ]]; then
+      printf '  %s✓ %s → %s to %s%s\n' "$GREEN" "$url" "$code" "$loc_host" "$RESET"
+    elif [[ "$code" =~ ^(401|403)$ ]]; then
+      printf '  %s? %s → %s with no redirect to Access%s\n' "$YELLOW" "$url" "$code" "$RESET"
+      if confirm "Open $url in a private/incognito window: do you see the Cloudflare Access login page (not the placeholder, not an error)?"; then
+        printf '  %s✓ %s confirmed by you%s\n' "$GREEN" "$url" "$RESET"
+      else
+        failed=1
+      fi
     else
-      printf '  %s? %s → %s %s (unexpected; treated as not protected)%s\n' "$YELLOW" "$url" "$code" "${loc:-}" "$RESET"
+      printf '  %s✗ %s → %s %s (not an Access login; treated as not protected)%s\n' "$RED" "$url" "$code" "${loc_host:-}" "$RESET"
       failed=1
     fi
     rm -f "$body"
@@ -293,10 +311,14 @@ stage "Create the Pages project (direct upload)"
 ask CF_PAGES_PROJECT "Pages project name (Enter for vault-viewer):"
 CF_PAGES_PROJECT="${CF_PAGES_PROJECT:-vault-viewer}"
 write_env CF_PAGES_PROJECT "$CF_PAGES_PROJECT"
-if wr pages project list 2>/dev/null | grep -qw -- "$CF_PAGES_PROJECT"; then
-  printf '  %s✓ project %s already exists%s\n' "$GREEN" "$CF_PAGES_PROJECT" "$RESET"
+if create_out=$(wr pages project create "$CF_PAGES_PROJECT" --production-branch main 2>&1); then
+  printf '%s\n' "$create_out" | sed 's/^/  /'
+elif grep -qi "already exists" <<<"$create_out"; then
+  printf '%s\n' "$create_out" | sed 's/^/  /'
+  printf '  %s✓ project %s already exists; reusing it%s\n' "$GREEN" "$CF_PAGES_PROJECT" "$RESET"
 else
-  wr pages project create "$CF_PAGES_PROJECT" --production-branch main
+  printf '%s\n' "$create_out" | sed 's/^/  /'
+  warn "Creating the project failed (see above)."; exit 1
 fi
 note "If that hostname was taken, Cloudflare adds a suffix (e.g. vault-viewer-abc.pages.dev)."
 open_url "https://dash.cloudflare.com/?to=/:account/workers-and-pages"
@@ -337,7 +359,8 @@ pause "Both applications in place? Press Enter to test them"
 
 # ── 8 ─────────────────────────────────────────────────────────────────────
 stage "Prove strangers are turned away"
-say "Requesting the site with no login: each must bounce to Access, never show the placeholder."
+say "Requesting the site with no login: each must redirect to *.cloudflareaccess.com, never show the placeholder."
+note "A 401/403 without that redirect asks you to check in a private window before continuing."
 note "Access changes can take a minute to apply. If this fails straight away, wait and re-run."
 access_gate "$CF_PAGES_HOST"
 printf '\n  %s✓ Access is protecting production, robots.txt and previews.%s\n' "$GREEN" "$RESET"
