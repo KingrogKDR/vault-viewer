@@ -1,10 +1,10 @@
-import type { VaultFile } from "./vault";
+import type { Note } from "./vault";
 
 /**
  * A note's title: its frontmatter `title` when set, otherwise the text of its
  * opening `# Heading`, otherwise its file name without `.md`.
  */
-export function noteTitle(file: VaultFile): string {
+export function noteTitle(file: Note): string {
   const title = file.frontmatter.title;
   if ((typeof title === "string" || typeof title === "number") && String(title).trim() !== "") {
     return String(title).trim();

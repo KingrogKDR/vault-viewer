@@ -4,20 +4,26 @@ import { loadVault, type VaultFile } from "../lib/vault";
 import { renderNote } from "../lib/render-note";
 import Base from "../layouts/Base.astro";
 import { noteTitle } from "../lib/note-title";
+import AttachmentViewer from "../components/AttachmentViewer.astro";
 
 export async function getStaticPaths() {
   const vault = await loadVault();
   return vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } }));
 }
 
-// `astro dev` caches getStaticPaths props, so take the note from the current
-// vault read (shared across the build, fresh in dev) to see frontmatter edits.
+// `astro dev` caches getStaticPaths props, so take the vault file from the
+// current vault read (shared across the build, fresh in dev) to see edits.
 const { file: listed } = Astro.props as { file: VaultFile };
 const file = (await loadVault()).files.find((f) => f.path === listed.path) ?? listed;
-const title = noteTitle(file);
+// A note's title is chosen by noteTitle; an attachment's is its file name.
+const title = file.kind === "note" ? noteTitle(file) : file.path.slice(file.path.lastIndexOf("/") + 1);
 // The rendered body opens with the note's one h1, showing `title`.
-const html = await renderNote(await readFile(file.absolutePath, "utf8"), { title });
+const html = file.kind === "note" ? await renderNote(await readFile(file.absolutePath, "utf8"), { title }) : "";
 ---
 <Base title={title} current={file.path}>
-  <main><article class="note" set:html={html} /></main>
+  {file.kind === "note" ? (
+    <main><article class="note" set:html={html} /></main>
+  ) : (
+    <main><AttachmentViewer file={file} title={title} /></main>
+  )}
 </Base>

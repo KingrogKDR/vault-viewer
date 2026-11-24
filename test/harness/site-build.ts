@@ -96,6 +96,8 @@ export interface SiteBuild {
   page(url: string): Promise<Document>;
   /** Read any output file as text by its path in the output dir (e.g. `_headers`). Throws if it doesn't exist. */
   file(path: string): Promise<string>;
+  /** Read any output file's exact bytes by its path in the output dir (decoded, e.g. `raw/café.png`). Throws if it doesn't exist. */
+  bytes(path: string): Promise<Uint8Array>;
   /** Paths (`/`-separated, relative to the output dir) of every `.html` file the build wrote, sorted. */
   htmlPages(): Promise<string[]>;
 }
@@ -140,6 +142,11 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
       const file = join(outDir, ...path.split("/").filter(Boolean));
       if (!existsSync(file)) throw new Error(`No output file ${path} (looked for ${file})`);
       return readFile(file, "utf8");
+    },
+    async bytes(path) {
+      const file = join(outDir, ...path.split("/").filter(Boolean));
+      if (!existsSync(file)) throw new Error(`No output file ${path} (looked for ${file})`);
+      return new Uint8Array(await readFile(file));
     },
     async htmlPages() {
       const entries = await readdir(outDir, { recursive: true });

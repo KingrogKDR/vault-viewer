@@ -1,6 +1,6 @@
 // Vault reader: turns the vault directory into the list of vault files.
-// The listing follows the vault's git (ADR-0004); each note carries its parsed
-// frontmatter. Attachments arrive in #7.
+// The listing follows the vault's git (ADR-0004). Every vault file gets a kind,
+// which picks its viewer; notes also carry their parsed frontmatter.
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -13,18 +13,45 @@ import { openingHeadingText } from "./opening-heading";
 
 const execFileAsync = promisify(execFile);
 
-export interface VaultFile {
+/** Which viewer shows a vault file. More kinds (pdf, video, ...) arrive with their viewers. */
+export type VaultFileKind = "note" | "image" | "other";
+
+const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"]);
+
+/** The one place a vault file's kind is decided, from its vault path's extension. */
+function kindFor(path: string): VaultFileKind {
+  const name = path.slice(path.lastIndexOf("/") + 1);
+  const dot = name.lastIndexOf(".");
+  const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
+  if (extension === "md") return "note";
+  if (IMAGE_EXTENSIONS.has(extension)) return "image";
+  return "other";
+}
+
+interface VaultFileBase {
   /** Vault path, relative to the vault root, `/`-separated. */
   path: string;
   /** Absolute path on disk. */
   absolutePath: string;
-  kind: "note";
   slug: string;
+  /** Size in bytes. */
+  size: number;
+}
+
+export interface Note extends VaultFileBase {
+  kind: "note";
   /** Parsed YAML frontmatter; `{}` when the note has none or it is malformed. */
   frontmatter: Frontmatter;
   /** Plain text of the note's opening `# Heading`, if it opens with one. */
   openingHeading?: string;
 }
+
+/** Any vault file that is not a note. The vault reader never reads its contents. */
+export interface Attachment extends VaultFileBase {
+  kind: Exclude<VaultFileKind, "note">;
+}
+
+export type VaultFile = Note | Attachment;
 
 export interface Vault {
   dir: string;
@@ -65,13 +92,15 @@ export function loadVault(): Promise<Vault> {
 export async function readVault(dir: string): Promise<Vault> {
   const files: VaultFile[] = [];
   for (const path of await listVaultPaths(dir)) {
-    // Only notes get viewer pages until attachments land (#7).
-    if (!path.toLowerCase().endsWith(".md")) continue;
     const absolutePath = join(dir, ...path.split("/"));
-    const source = await readFile(absolutePath, "utf8");
-    const frontmatter = parseFrontmatter(source);
-    const openingHeading = openingHeadingText(source);
-    files.push({ path, absolutePath, kind: "note", slug: slugFor(path), frontmatter, openingHeading });
+    const base = { path, absolutePath, slug: slugFor(path), size: (await stat(absolutePath)).size };
+    const kind = kindFor(path);
+    if (kind === "note") {
+      const source = await readFile(absolutePath, "utf8");
+      files.push({ ...base, kind, frontmatter: parseFrontmatter(source), openingHeading: openingHeadingText(source) });
+    } else {
+      files.push({ ...base, kind });
+    }
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertUniqueSlugs(files);
