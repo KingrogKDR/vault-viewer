@@ -8,10 +8,10 @@
 // Or in one call: `const build = await buildFixtureVault({ ... })`.
 // Every build gets its own temporary output directory, so builds never collide.
 
-import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, writeFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { parseHTML } from "linkedom";
 
 const REPO_ROOT = resolve(import.meta.dir, "../..");
@@ -94,6 +94,10 @@ export interface SiteBuild {
   hasPage(url: string): boolean;
   /** Load the page at this site URL as a DOM document. Throws if it doesn't exist. */
   page(url: string): Promise<Document>;
+  /** Read any output file as text by its path in the output dir (e.g. `_headers`). Throws if it doesn't exist. */
+  file(path: string): Promise<string>;
+  /** Paths (`/`-separated, relative to the output dir) of every `.html` file the build wrote, sorted. */
+  htmlPages(): Promise<string[]>;
 }
 
 export interface BuildOptions {
@@ -131,6 +135,18 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
       const file = fileFor(url);
       if (!existsSync(file)) throw new Error(`No page at ${url} (looked for ${file})`);
       return parseHTML(await readFile(file, "utf8")).document as unknown as Document;
+    },
+    async file(path) {
+      const file = join(outDir, ...path.split("/").filter(Boolean));
+      if (!existsSync(file)) throw new Error(`No output file ${path} (looked for ${file})`);
+      return readFile(file, "utf8");
+    },
+    async htmlPages() {
+      const entries = await readdir(outDir, { recursive: true });
+      return entries
+        .map((entry) => entry.split(sep).join("/"))
+        .filter((entry) => entry.endsWith(".html"))
+        .sort();
     },
   };
 }
