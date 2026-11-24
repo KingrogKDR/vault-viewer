@@ -1,0 +1,35 @@
+---
+// The shared page layout: header, file tree sidebar, and the page's content
+// in the default slot.
+import { readVault, vaultDirFromEnv } from "../lib/vault";
+import { buildFileTree } from "../lib/file-tree";
+import FileTree from "../components/FileTree.astro";
+
+interface Props {
+  /** The page's <title>. */
+  title: string;
+  /** Vault path of the vault file this page shows; omit on pages that show none. */
+  current?: string;
+}
+
+const { title, current } = Astro.props;
+const tree = buildFileTree((await readVault(vaultDirFromEnv())).files);
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <slot name="head" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="site-name" href="/">Vault</a>
+    </header>
+    <nav class="file-tree" aria-label="Files">
+      <FileTree entries={tree} current={current} />
+    </nav>
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,27 @@
+---
+// Renders file tree entries as nested lists. Recursive: folders render
+// their own entries through this component.
+import type { TreeEntry } from "../lib/file-tree";
+
+interface Props {
+  entries: TreeEntry[];
+  /** Vault path of the vault file being viewed, if any. */
+  current?: string;
+}
+
+const { entries, current } = Astro.props;
+---
+<ul>
+  {entries.map((entry) =>
+    entry.kind === "folder" ? (
+      <li>
+        <details>
+          <summary>{entry.name}</summary>
+          <Astro.self entries={entry.entries} current={current} />
+        </details>
+      </li>
+    ) : (
+      <li><a href={entry.href}>{entry.name}</a></li>
+    ),
+  )}
+</ul>
