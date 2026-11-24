@@ -1,0 +1,38 @@
+---
+// The home page: the vault's top level, as a starting point. Folders are plain
+// labels (there are no folder pages); files link to their viewer pages.
+import { loadVault } from "../lib/vault";
+import { buildFileTree, type TreeFile, type TreeFolder } from "../lib/file-tree";
+import Base from "../layouts/Base.astro";
+
+const vault = await loadVault();
+const top = buildFileTree(vault.files);
+const folders = top.filter((e): e is TreeFolder => e.kind === "folder");
+const files = top.filter((e): e is TreeFile => e.kind === "file");
+// Count by kind so attachments (#7) count as vault files but not as notes.
+const noteCount = vault.files.filter((f) => f.kind === "note").length;
+const fileCount = vault.files.length;
+const counted = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+---
+<Base title="Vault">
+  <main class="home">
+    <h1>Vault</h1>
+    <p class="home-counts">{counted(noteCount, "note")}, {counted(fileCount, "file")}</p>
+    {folders.length > 0 && (
+      <section>
+        <h2>Folders</h2>
+        <ul class="home-folders">
+          {folders.map((folder) => <li>{folder.name}</li>)}
+        </ul>
+      </section>
+    )}
+    {files.length > 0 && (
+      <section>
+        <h2>Files</h2>
+        <ul class="home-files">
+          {files.map((file) => <li><a href={file.href}>{file.name}</a></li>)}
+        </ul>
+      </section>
+    )}
+  </main>
+</Base>
