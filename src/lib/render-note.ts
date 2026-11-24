@@ -9,12 +9,14 @@ import remarkRehype from "remark-rehype";
 import rehypeRaw from "rehype-raw";
 import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
+import remarkDropOpeningH1 from "./remark-drop-opening-h1";
 
 // Raw HTML in notes is kept on purpose: the content is self-authored and
 // behind Access (spec, "Markdown renderer").
 const processor = unified()
   .use(remarkParse)
   .use(remarkFrontmatter)
+  .use(remarkDropOpeningH1)
   .use(remarkGfm)
   .use(remarkRehype, { allowDangerousHtml: true })
   .use(rehypeRaw)

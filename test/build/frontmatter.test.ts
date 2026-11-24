@@ -28,4 +28,16 @@ describe("frontmatter", () => {
     expect(doc.querySelector("title")?.textContent).toBe("Pond Project, Year One");
     expect([...doc.querySelectorAll("h1")].map((h) => h.textContent)).toEqual(["Pond Project, Year One"]);
   }, 30_000);
+
+  test("without a frontmatter title the file name is used, and the note's opening h1 gives way to it", async () => {
+    const build = await buildFixtureVault({
+      "Kitchen/Soup Stock.md": ["# My Best Stock", "", "Roast the bones first.", ""].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/kitchen/soup-stock/");
+    expect(doc.querySelector("title")?.textContent).toBe("Soup Stock");
+    expect([...doc.querySelectorAll("h1")].map((h) => h.textContent)).toEqual(["Soup Stock"]);
+    expect(doc.querySelector("article.note p")?.textContent).toBe("Roast the bones first.");
+  }, 30_000);
 });
