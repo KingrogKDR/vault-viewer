@@ -15,10 +15,12 @@
         "remark-parse": "^11.0.0",
         "remark-rehype": "^11.1.2",
         "unified": "^11.0.5",
+        "unist-util-visit": "^5",
         "yaml": "^2.9.1",
       },
       "devDependencies": {
         "@types/bun": "^1.4.5",
+        "@types/hast": "^3",
         "@types/mdast": "^4.0.4",
         "linkedom": "^0.18.15",
         "typescript": "^7.0.2",
