@@ -1,10 +1,10 @@
 ---
 import { readFile } from "node:fs/promises";
-import { readVault, type VaultFile } from "../lib/vault";
+import { readVault, vaultDirFromEnv, type VaultFile } from "../lib/vault";
 import { renderNote } from "../lib/render-note";
 
 export async function getStaticPaths() {
-  const vault = await readVault(process.env.VAULT_DIR!);
+  const vault = await readVault(vaultDirFromEnv());
   return vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } }));
 }
 

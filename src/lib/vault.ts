@@ -20,6 +20,15 @@ export interface Vault {
   files: VaultFile[];
 }
 
+/** The vault directory the build reads from, taken from `VAULT_DIR`. Throws a clear error if unusable. */
+export function vaultDirFromEnv(): string {
+  const dir = process.env.VAULT_DIR;
+  if (!dir) {
+    throw new Error("VAULT_DIR is not set. Point it at the vault directory to build, e.g. VAULT_DIR=~/vault bun run build");
+  }
+  return dir;
+}
+
 /** Read the vault at `dir`. */
 export async function readVault(dir: string): Promise<Vault> {
   const entries = await readdir(dir, { recursive: true, withFileTypes: true });
