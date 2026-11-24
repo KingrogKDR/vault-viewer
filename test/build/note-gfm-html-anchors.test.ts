@@ -51,4 +51,31 @@ describe("GFM, raw HTML and heading anchors in a note", () => {
 
     expect(note.querySelector("pre > code.language-js")?.textContent).toBe("restock('sugar');\n");
   }, 30_000);
+
+  test("raw HTML written in a note is kept in the page", async () => {
+    const build = await buildFixtureVault({
+      "Hike.md": [
+        "# Hike",
+        "",
+        "Start at the car park<br/>and head north.",
+        "",
+        "<details>",
+        "<summary>Packing list</summary>",
+        "",
+        "Water and a map.",
+        "",
+        "</details>",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const note = (await build.page("/hike/")).querySelector("article.note")!;
+
+    expect(note.querySelector("p br")).not.toBeNull();
+    const details = note.querySelector("details")!;
+    expect(details).not.toBeNull();
+    expect(details.querySelector("summary")?.textContent).toBe("Packing list");
+    expect(details.querySelector("p")?.textContent).toBe("Water and a map.");
+  }, 30_000);
 });
