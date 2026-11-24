@@ -37,4 +37,16 @@ describe("slugs", () => {
     expect((await build.page("/日記/今日の-メモ/")).querySelector("h1")?.textContent).toBe("Today");
     expect((await build.page("/हिन्दी-नोट्स/")).querySelector("h1")?.textContent).toBe("Hindi notes");
   }, 30_000);
+
+  test("two vault files with the same slug fail the build, naming both vault paths", async () => {
+    const build = await buildFixtureVault({
+      "Reading List.md": "# Reading list\n",
+      "reading-list.md": "# Another reading list\n",
+      "Other.md": "# Other\n",
+    });
+
+    expect(build.ok).toBe(false);
+    expect(build.output).toContain("Reading List.md");
+    expect(build.output).toContain("reading-list.md");
+  }, 30_000);
 });

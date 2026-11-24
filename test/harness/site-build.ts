@@ -90,7 +90,7 @@ export interface SiteBuild {
   output: string;
   /** The build's output directory. */
   outDir: string;
-  /** Whether the output has a viewer page at this site URL (e.g. `/hello/`). */
+  /** Whether the output has a viewer page at this site URL (e.g. `/hello/`, or `/café/` decoded, not `/caf%C3%A9/`). */
   hasPage(url: string): boolean;
   /** Load the page at this site URL as a DOM document. Throws if it doesn't exist. */
   page(url: string): Promise<Document>;
