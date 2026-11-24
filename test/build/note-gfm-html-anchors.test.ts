@@ -78,4 +78,39 @@ describe("GFM, raw HTML and heading anchors in a note", () => {
     expect(details.querySelector("summary")?.textContent).toBe("Packing list");
     expect(details.querySelector("p")?.textContent).toBe("Water and a map.");
   }, 30_000);
+
+  test("every heading gets an id that an in-page #heading link targets", async () => {
+    const build = await buildFixtureVault({
+      "Bike Repair.md": [
+        "# Bike Repair",
+        "",
+        "Skip to [fixing a flat](#fixing-a-flat).",
+        "",
+        "## Tools Needed",
+        "",
+        "## Fixing a Flat",
+        "",
+        "### Notes",
+        "",
+        "### Notes",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/bike-repair/");
+    const note = doc.querySelector("article.note")!;
+
+    expect([...note.querySelectorAll("h1, h2, h3")].map((h) => h.getAttribute("id"))).toEqual([
+      "bike-repair",
+      "tools-needed",
+      "fixing-a-flat",
+      "notes",
+      "notes-1",
+    ]);
+
+    const href = note.querySelector('a[href^="#"]')!.getAttribute("href")!;
+    expect(href).toBe("#fixing-a-flat");
+    expect(doc.getElementById(href.slice(1))?.textContent).toBe("Fixing a Flat");
+  }, 30_000);
 });
