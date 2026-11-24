@@ -39,4 +39,23 @@ describe("the vault's file list follows git", () => {
     expect(build.hasPage("/current/")).toBe(true);
     expect(build.hasPage("/old-note/")).toBe(false);
   }, 30_000);
+
+  test("notes under a path segment starting with . get no page, tracked or not", async () => {
+    const build = await buildFixtureVault(
+      {
+        ".obsidian/workspace.md": "# Workspace\n",
+        "Projects/.drafts/Outline.md": "# Outline\n",
+        "Projects/.hidden note.md": "# Hidden\n",
+        "Projects/Roadmap.md": "# Roadmap\n",
+      },
+      { untracked: { ".trash/Deleted Idea.md": "# Deleted Idea\n" } },
+    );
+
+    expect(build.ok).toBe(true);
+    expect(build.hasPage("/projects/roadmap/")).toBe(true);
+    expect(build.hasPage("/.obsidian/workspace/")).toBe(false);
+    expect(build.hasPage("/projects/.drafts/outline/")).toBe(false);
+    expect(build.hasPage("/projects/.hidden-note/")).toBe(false);
+    expect(build.hasPage("/.trash/deleted-idea/")).toBe(false);
+  }, 30_000);
 });
