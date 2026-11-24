@@ -37,6 +37,8 @@ export async function cleanupTempDirs(): Promise<void> {
 export interface FixtureOptions {
   /** Files written after the commit and left untracked (never `git add`ed). */
   untracked?: FixtureFiles;
+  /** Vault paths deleted from the working tree after the commit, so git still tracks them. */
+  deleted?: string[];
 }
 
 async function writeFiles(vaultDir: string, files: FixtureFiles): Promise<void> {
@@ -64,6 +66,9 @@ export async function createFixtureVault(files: FixtureFiles, options: FixtureOp
     "commit", "--quiet", "--allow-empty", "-m", "fixture vault",
   );
   await writeFiles(vaultDir, options.untracked ?? {});
+  for (const vaultPath of options.deleted ?? []) {
+    await rm(join(vaultDir, ...vaultPath.split("/")));
+  }
   return vaultDir;
 }
 

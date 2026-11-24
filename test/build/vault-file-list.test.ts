@@ -28,4 +28,15 @@ describe("the vault's file list follows git", () => {
     expect(build.hasPage("/desktop-only/plans/")).toBe(false);
     expect(build.hasPage("/scratch/")).toBe(false);
   }, 30_000);
+
+  test("a tracked note deleted from the working tree gets no page", async () => {
+    const build = await buildFixtureVault(
+      { "Old Note.md": "# Old Note\n", "Current.md": "# Current\n" },
+      { deleted: ["Old Note.md"] },
+    );
+
+    expect(build.ok).toBe(true);
+    expect(build.hasPage("/current/")).toBe(true);
+    expect(build.hasPage("/old-note/")).toBe(false);
+  }, 30_000);
 });

@@ -4,7 +4,7 @@
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { slugFor } from "./slug";
@@ -68,14 +68,24 @@ async function isGitRepo(dir: string): Promise<boolean> {
   }
 }
 
-/** Tracked files plus untracked files that aren't ignored. */
+/** Tracked files plus untracked files that aren't ignored, minus tracked files missing from the working tree. */
 async function gitListing(dir: string): Promise<string[]> {
   const { stdout } = await execFileAsync(
     "git",
     ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
     { cwd: dir, maxBuffer: 256 * 1024 * 1024 },
   );
-  return [...new Set(stdout.split("\0").filter(Boolean))];
+  const listed = [...new Set(stdout.split("\0").filter(Boolean))];
+  const present = await Promise.all(listed.map((path) => isFileOnDisk(join(dir, ...path.split("/")))));
+  return listed.filter((_, i) => present[i]);
+}
+
+async function isFileOnDisk(absolutePath: string): Promise<boolean> {
+  try {
+    return (await stat(absolutePath)).isFile();
+  } catch {
+    return false;
+  }
 }
 
 async function folderWalk(dir: string): Promise<string[]> {
