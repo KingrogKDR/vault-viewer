@@ -1,13 +1,14 @@
 // Vault reader: turns the vault directory into the list of vault files.
-// The listing follows the vault's git (ADR-0004); attachments and frontmatter
-// arrive in #7 and #6.
+// The listing follows the vault's git (ADR-0004); each note carries its parsed
+// frontmatter. Attachments arrive in #7.
 
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, sep } from "node:path";
 import { promisify } from "node:util";
 import { slugFor } from "./slug";
+import { parseFrontmatter, type Frontmatter } from "./frontmatter";
 
 const execFileAsync = promisify(execFile);
 
@@ -18,6 +19,8 @@ export interface VaultFile {
   absolutePath: string;
   kind: "note";
   slug: string;
+  /** Parsed YAML frontmatter; `{}` when the note has none or it is malformed. */
+  frontmatter: Frontmatter;
 }
 
 export interface Vault {
@@ -43,7 +46,9 @@ export async function readVault(dir: string): Promise<Vault> {
   for (const path of await listVaultPaths(dir)) {
     // Only notes get viewer pages until attachments land (#7).
     if (!path.toLowerCase().endsWith(".md")) continue;
-    files.push({ path, absolutePath: join(dir, ...path.split("/")), kind: "note", slug: slugFor(path) });
+    const absolutePath = join(dir, ...path.split("/"));
+    const frontmatter = parseFrontmatter(await readFile(absolutePath, "utf8"));
+    files.push({ path, absolutePath, kind: "note", slug: slugFor(path), frontmatter });
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertUniqueSlugs(files);
