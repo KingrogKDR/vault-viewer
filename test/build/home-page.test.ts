@@ -63,6 +63,18 @@ describe("home page", () => {
     expect(counts).toBe("3 notes, 3 files");
   }, 30_000);
 
+  test("/ counts attachments as vault files but not as notes", async () => {
+    const build = await buildFixtureVault({
+      "Inbox.md": "# Inbox\n",
+      "Garden/Bed Layout.png": "png",
+      "Seeds.csv": "name,count\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const counts = homeMain(await build.page("/")).querySelector(".home-counts")?.textContent?.replace(/\s+/g, " ").trim();
+    expect(counts).toBe("1 note, 3 files");
+  }, 30_000);
+
   test("/ says \"1 note\" and \"1 file\" for a one-note vault", async () => {
     const build = await buildFixtureVault({ "Inbox.md": "# Inbox\n" });
 
