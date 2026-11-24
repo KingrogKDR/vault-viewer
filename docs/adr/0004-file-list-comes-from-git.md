@@ -1,0 +1,3 @@
+# The vault's file list comes from git, not the filesystem
+
+When the vault is a git repo, the vault files are what git would publish: tracked files plus untracked files that aren't ignored (`git ls-files --cached --others --exclude-standard`), minus any dot-folder. It is not a plain directory walk. CI builds from a git checkout, so this makes a local preview show exactly what the live site will show, and it respects the vault's own `.gitignore` (folders the owner keeps desktop-only). A directory walk would leak ignored folders into local previews and make them disagree with production. Directory walking remains only as a fallback for a vault without git.

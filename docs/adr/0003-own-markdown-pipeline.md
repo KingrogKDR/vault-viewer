@@ -1,0 +1,3 @@
+# Own unified markdown pipeline instead of Astro's markdown or Quartz
+
+Notes are rendered by our own unified pipeline (remark/rehype plus plugins we write for wikilinks, embeds, callouts, tags and PDF highlight links). We don't use Astro's built-in markdown or content collections, and we don't adopt an Obsidian publishing tool such as Quartz. Obsidian behaviour (resolving links by shortest matching path, embeds, `publish: false`) cuts across every file in the vault. Content collections impose their own slugs, IDs and schemas that fight this. Off-the-shelf tools don't cover the viewers, large files, or PWA rules this project needs. Astro is used only for routing, layout and static output.
