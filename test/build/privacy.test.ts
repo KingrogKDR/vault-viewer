@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { parseHTML } from "linkedom";
 import { buildFixtureVault, cleanupTempDirs, type SiteBuild } from "../harness/site-build";
 
 /** Parse Cloudflare's `_headers` format: a path line, then indented `Name: value` lines. */
@@ -55,5 +56,16 @@ describe("privacy headers and robots rules", () => {
       ["user-agent", "*"],
       ["disallow", "/"],
     ]);
+  });
+
+  test("every HTML page carries a robots noindex, nofollow meta tag", async () => {
+    const pages = await build.htmlPages();
+    expect(pages).toContain("garden-plans/index.html");
+    expect(pages).toContain("recipes/soup/index.html");
+    for (const path of pages) {
+      const doc = parseHTML(await build.file(path)).document;
+      const robots = doc.querySelector('head meta[name="robots"]');
+      expect({ path, content: robots?.getAttribute("content") }).toEqual({ path, content: "noindex, nofollow" });
+    }
   });
 });
