@@ -55,6 +55,9 @@ export function buildFileTree(files: TreeSource[]): TreeEntry[] {
 }
 
 function sortEntries(entries: TreeEntry[]): void {
-  entries.sort((a, b) => a.name.localeCompare(b.name));
+  entries.sort((a, b) => {
+    if (a.kind !== b.kind) return a.kind === "folder" ? -1 : 1;
+    return a.name.localeCompare(b.name);
+  });
   for (const entry of entries) if (entry.kind === "folder") sortEntries(entry.entries);
 }

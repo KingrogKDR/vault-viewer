@@ -47,4 +47,20 @@ describe("file tree", () => {
     const tomatoes = [...fileTree(doc).querySelectorAll("a")].find((a) => a.textContent === "Tomatoes");
     expect(tomatoes?.getAttribute("href")).toBe("/garden/vegetables/tomatoes/");
   }, 30_000);
+
+  test("folders come before files", async () => {
+    const build = await buildFixtureVault({
+      "Apples.md": "# Apples\n",
+      "Zoo/Lions.md": "# Lions\n",
+      "Mid.md": "# Mid\n",
+    });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/apples/");
+    expect(outline(fileTree(doc).querySelector(":scope > ul"))).toEqual([
+      { folder: "Zoo", open: false, entries: ["Lions"] },
+      "Apples",
+      "Mid",
+    ]);
+  }, 30_000);
 });
