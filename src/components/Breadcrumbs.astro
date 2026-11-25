@@ -1,0 +1,62 @@
+---
+// A page's breadcrumb trail. On an owner page (folder or viewer page): Vault,
+// then each folder the page sits in, linking where any link to a folder goes
+// (its `href`), then the page itself marked current. On a shared page
+// (ADR-0006), title-only: just the note's title, marked current and linking
+// nowhere, since a folder name would leak and "Vault" or any link outside /s/
+// leads a visitor to the Access login.
+import { loadVault } from "../lib/vault";
+import { foldersOf } from "../lib/folders";
+
+type Props =
+  | {
+      /** Vault path of the folder the page sits in, `""` at the vault root. */
+      folderPath: string;
+      /** The page itself: its name and its own URL. */
+      name: string;
+      href: string;
+    }
+  | {
+      /** Title-only, for a shared page: no Vault, no folders, no links. */
+      titleOnly: true;
+      name: string;
+    };
+
+const props = Astro.props;
+const owner = "folderPath" in props ? props : undefined;
+const folders = owner && foldersOf((await loadVault()).files);
+const segments = owner?.folderPath ? owner.folderPath.split("/") : [];
+const ancestors = segments.map((_, i) => folders!.get(segments.slice(0, i + 1).join("/"))!);
+---
+<nav class="breadcrumbs" aria-label="Breadcrumbs">
+  <ol>
+    {owner && <li><a href="/">Vault</a></li>}
+    {ancestors.map((ancestor) => <li><a href={ancestor.href}>{ancestor.name}</a></li>)}
+    <li>{owner ? <a href={owner.href} aria-current="page">{props.name}</a> : <span aria-current="page">{props.name}</span>}</li>
+  </ol>
+</nav>
+
+<style>
+  /* Only Base's tokens. */
+  .breadcrumbs { margin-block-end: 1rem; }
+  .breadcrumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--muted-foreground);
+  }
+  /* The divider is decorative: the empty alt keeps it out of the accessibility tree. */
+  .breadcrumbs li + li::before { content: "/"; content: "/" / ""; margin-inline-end: 0.5rem; }
+  .breadcrumbs a { color: inherit; }
+  .breadcrumbs [aria-current="page"] { color: var(--foreground); font-weight: 600; text-decoration: none; }
+  @media (forced-colors: active) {
+    .breadcrumbs a[aria-current="page"] { text-decoration: underline; }
+  }
+</style>
