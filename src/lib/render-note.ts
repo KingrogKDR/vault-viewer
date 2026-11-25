@@ -11,6 +11,7 @@ import rehypeSlug from "rehype-slug";
 import rehypeStringify from "rehype-stringify";
 import { remarkTitleHeading } from "./opening-heading";
 import { rehypeResolveLinks } from "./resolve-links";
+import { rehypeScrollTables } from "./scroll-tables";
 import type { Note, Vault } from "./vault";
 
 /**
@@ -31,6 +32,7 @@ export async function renderNote(vault: Vault, note: Note, source: string, { tit
     .use(rehypeResolveLinks, { vault, fromPath: note.path })
     // GitHub-style heading ids ("Fixing a Flat" -> "fixing-a-flat", repeats get -1, -2).
     .use(rehypeSlug)
+    .use(rehypeScrollTables)
     .use(rehypeStringify);
   return String(await processor.process(source));
 }

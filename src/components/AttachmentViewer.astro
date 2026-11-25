@@ -1,6 +1,6 @@
 ---
-// The viewer for an attachment: its vault path, size and a download link,
-// with images shown inline. Later kinds (pdf, video, ...) add their viewers here.
+// The viewer for an attachment: its vault path and size, with images shown
+// inline (the page's download button is in PageActions). Later kinds (pdf, video, ...) add their viewers here.
 import type { Attachment } from "../lib/vault";
 import { rawUrlFor } from "../lib/slug";
 
@@ -39,7 +39,6 @@ function humanSize(bytes: number): string {
     <dt>Size</dt>
     <dd>{humanSize(file.size)}</dd>
   </dl>
-  <p><a class="attachment-download" href={rawUrl} download>Download</a></p>
 </article>
 
 <style>

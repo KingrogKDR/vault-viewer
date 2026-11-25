@@ -40,7 +40,10 @@ const tree = buildFileTree((await loadVault()).files);
     <a class="skip-link" href="#content">Skip to content</a>
     <input type="checkbox" id="file-tree-toggle" class="file-tree-toggle" aria-controls="file-tree" />
     <header class="site-header">
-      <label for="file-tree-toggle" class="file-tree-button">Files</label>
+      <label for="file-tree-toggle" class="button file-tree-button">
+        <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        Files
+      </label>
       <a class="site-name" href="/">Vault</a>
     </header>
     <nav class="file-tree" id="file-tree" aria-label="Files">
@@ -77,7 +80,7 @@ const tree = buildFileTree((await loadVault()).files);
     --rule: #d3deea;
     --margin-line: #e19ca2;
     --code-bg: #f3ecdf;
-    --scrollbar-thumb: #a1957f;
+    --scrollbar-thumb: #847862;
     --selection: #c9daf5;
     --shadow: #4a3a1a26;
     --destructive: #b2362b;
@@ -102,7 +105,7 @@ const tree = buildFileTree((await loadVault()).files);
       --rule: #273149;
       --margin-line: #8f4a5a;
       --code-bg: #141a26;
-      --scrollbar-thumb: #5d6984;
+      --scrollbar-thumb: #67738f;
       --selection: #34508a;
       --shadow: #00000080;
       --destructive: #f2897c;
@@ -156,7 +159,7 @@ const tree = buildFileTree((await loadVault()).files);
     transition: color 0.15s, background-color 0.15s;
   }
   a:hover { text-decoration-thickness: 2px; }
-  :where(a, summary, label, input):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+  :where(a, summary, label, input, [tabindex]):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
   /* A link or image in a note that resolves to no vault file: a teacher's red wavy line. */
   .broken-link {
@@ -211,10 +214,12 @@ const tree = buildFileTree((await loadVault()).files);
   }
   .site-name:hover { color: var(--primary); }
 
-  /* The "Files" toggle: a shadcn outline button. The checkbox stays focusable for keyboards but is visually hidden. */
-  .file-tree-toggle { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
-  .file-tree-button {
-    display: none;
+  /*
+   * A shadcn outline button: the "Files" toggle and the page actions. Icons
+   * are inline SVG in currentColor, so they keep showing in forced colours.
+   */
+  .button {
+    display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     min-block-size: 2.25rem;
@@ -224,19 +229,22 @@ const tree = buildFileTree((await loadVault()).files);
     background: var(--card);
     color: var(--foreground);
     font: 500 0.875rem/1.25 var(--font-sans);
+    text-decoration: none;
     box-shadow: 0 1px 2px var(--shadow);
     cursor: pointer;
     user-select: none;
-    transition: background-color 0.15s;
+    transition: background-color 0.15s, color 0.15s;
   }
-  .file-tree-button::before {
-    content: "";
-    inline-size: 0.875rem;
-    block-size: 0.625rem;
-    border-block: 2px solid currentColor;
-    background: linear-gradient(currentColor 0 100%) center / 100% 2px no-repeat;
-  }
-  .file-tree-button:hover { background: var(--accent); color: var(--accent-foreground); }
+  .button:hover { background: var(--accent); color: var(--accent-foreground); }
+  .button-icon { flex: none; inline-size: 1rem; block-size: 1rem; }
+
+  /*
+   * The "Files" toggle, shown on narrow screens only. Its checkbox is visually
+   * hidden there but stays focusable for keyboards; on wide screens, where the
+   * tree is always shown, it is out of the tab order altogether.
+   */
+  .file-tree-toggle { display: none; }
+  .file-tree-button { display: none; }
   .file-tree-toggle:focus-visible ~ .site-header .file-tree-button { outline: 2px solid var(--ring); outline-offset: 2px; }
   .file-tree-toggle:checked ~ .site-header .file-tree-button { background: var(--accent); }
 
@@ -260,6 +268,8 @@ const tree = buildFileTree((await loadVault()).files);
   }
   .file-tree::before {
     content: "Index";
+    /* Decorative: the nav is already named "Files". */
+    content: "Index" / "";
     display: block;
     margin: 0 0.75rem 0.5rem 0.5rem;
     padding-block-end: 0.125rem;
@@ -321,10 +331,12 @@ const tree = buildFileTree((await loadVault()).files);
    * apart, starting below the top band, and a double margin line on the left.
    */
   body > main {
+    position: relative;
     grid-area: main;
     justify-self: center;
     inline-size: calc(100% - 3rem);
-    max-inline-size: 52rem;
+    /* Keeps the reading measure near 75 characters a line. */
+    max-inline-size: 48rem;
     margin: 1.5rem 1.5rem 3rem;
     padding: var(--sheet-pad-top) 2.5rem var(--line-h) calc(var(--sheet-margin) + 1.5rem);
     line-height: var(--line-h);
@@ -353,7 +365,7 @@ const tree = buildFileTree((await loadVault()).files);
   /* Reading typography, keeping to the ruled-line rhythm where it can. */
   main p, main ul, main ol, main dl, main table, main pre, main blockquote, main figure { margin: 0 0 var(--line-h); }
   main p, main li, main blockquote { text-wrap: pretty; }
-  main h1, main h2, main h3, main h4, main h5, main h6, main th { text-wrap: balance; }
+  main h1, main h2, main h3, main h4, main h5, main h6 { text-wrap: balance; }
   main h1, main h2, main h3 {
     font-family: var(--font-hand);
     font-weight: 700;
@@ -425,18 +437,22 @@ const tree = buildFileTree((await loadVault()).files);
   }
   main pre code { font-size: inherit; }
 
-  /* Tables scroll sideways on their own rather than widening the sheet. */
-  main table {
-    display: block;
+  /*
+   * Each table sits in its own focusable scroll region (rehypeScrollTables),
+   * so a wide one scrolls sideways rather than widening the sheet, and the
+   * table keeps display: table and its semantics.
+   */
+  main .table-scroll {
+    inline-size: fit-content;
     max-inline-size: 100%;
-    inline-size: max-content;
+    margin: 0 0 var(--line-h);
     overflow-x: auto;
-    border-collapse: collapse;
-    font-size: 0.9375rem;
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
   }
+  main .table-scroll > table { margin: 0; }
+  main table { border-collapse: collapse; font-size: 0.9375rem; }
   main th, main td { padding: 0.25rem 0.75rem; border-block-end: 1px solid var(--border); text-align: start; vertical-align: top; }
   main th { font-family: var(--font-sans); font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground); background: var(--muted); }
   main tr:last-child > td { border-block-end: 0; }
@@ -462,30 +478,22 @@ const tree = buildFileTree((await loadVault()).files);
   main del { color: var(--muted-foreground); }
   main mark { background: var(--highlight); color: var(--foreground); padding: 0 0.15em; }
 
-  /* Download links (a[download]) read as shadcn outline buttons. */
-  main a[download] {
-    display: inline-flex;
-    align-items: center;
+  /*
+   * A viewer page's actions (PageActions): a row of buttons in the sheet's
+   * top-right corner, in a top band two ruled lines tall that pages with
+   * actions get. New actions (e.g. Share) join the row.
+   */
+  body > main.has-actions { --sheet-pad-top: calc(var(--line-h) * 2); }
+  .page-actions {
+    position: absolute;
+    inset-block-start: 0.625rem;
+    inset-inline-end: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 0.5rem;
-    min-block-size: 2.25rem;
-    padding: 0.25rem 0.875rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--card);
-    color: var(--foreground);
-    font: 500 0.875rem/1.25 var(--font-sans);
-    text-decoration: none;
-    box-shadow: 0 1px 2px var(--shadow);
+    line-height: 1.25;
   }
-  main a[download]::before {
-    content: "";
-    inline-size: 0.75rem;
-    block-size: 0.75rem;
-    border-block-end: 2px solid currentColor;
-    background: linear-gradient(currentColor 0 100%) center top / 2px 75% no-repeat;
-  }
-  main a[download]:hover { background: var(--accent); color: var(--accent-foreground); }
-  main > article.note + p { margin: var(--line-h) 0 0; }
 
   /* Home page. */
   .home-counts { color: var(--muted-foreground); font-style: italic; }
@@ -500,7 +508,7 @@ const tree = buildFileTree((await loadVault()).files);
     border-block-start-width: 3px;
     border-radius: 0.15rem;
   }
-  .home-files li::before { content: "\2013" / ""; margin-inline-end: 0.6rem; color: var(--muted-foreground); }
+  .home-files li::before { content: "\2013"; content: "\2013" / ""; margin-inline-end: 0.6rem; color: var(--muted-foreground); }
 
   /* Bigger tap targets in the index on touch screens. */
   @media (pointer: coarse) {
@@ -512,10 +520,27 @@ const tree = buildFileTree((await loadVault()).files);
   }
 
   /* Forced colours drop backgrounds and shadows, so mark state with outlines instead. */
+  /* Printing a page prints just the sheet's content, without the site's chrome or ruling. */
+  @media print {
+    body { display: block; background: none; }
+    .skip-link, .site-header, .file-tree, .page-actions { display: none; }
+    body > main {
+      inline-size: auto;
+      max-inline-size: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      box-shadow: none;
+      background: none;
+    }
+    main pre, main .table-scroll { overflow: visible; }
+    main h1, main h2, main h3 { break-after: avoid; }
+    main img, main pre, main .table-scroll, main blockquote { break-inside: avoid; }
+  }
+
   @media (forced-colors: active) {
     .file-tree a[aria-current="page"] { outline: 2px solid; outline-offset: -2px; }
     body > main { background-image: none; }
-    main a[download], .file-tree-button { border-style: solid; }
   }
 
   @media (max-width: 48rem) {
@@ -538,6 +563,7 @@ const tree = buildFileTree((await loadVault()).files);
         linear-gradient(to right, transparent var(--sheet-margin), var(--margin-line) var(--sheet-margin) calc(var(--sheet-margin) + 1px), transparent calc(var(--sheet-margin) + 1px)),
         repeating-linear-gradient(to bottom, transparent 0 calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px) var(--line-h));
     }
+    .file-tree-toggle { display: block; position: absolute; opacity: 0; inline-size: 1px; block-size: 1px; margin: 0; }
     .file-tree-button { display: inline-flex; }
     .file-tree {
       display: none;

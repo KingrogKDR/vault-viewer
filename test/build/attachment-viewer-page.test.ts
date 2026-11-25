@@ -18,8 +18,9 @@ describe("attachment viewer page", () => {
     expect(viewer.querySelector("h1")?.textContent).toBe("Quarterly Report.pdf");
     expect(viewer.textContent).toContain("Work/Quarterly Report.pdf");
     expect(viewer.textContent).toContain("1.5 KB");
-    const download = viewer.querySelector("a[download]")!;
+    const download = doc.querySelector("main a[download]")!;
     expect(download.getAttribute("href")).toBe("/raw/work/quarterly-report.pdf");
+    expect(download.getAttribute("download")).toBe("Quarterly Report.pdf");
     expect(new TextDecoder().decode(await build.bytes("raw/work/quarterly-report.pdf"))).toBe(report);
   }, 30_000);
 

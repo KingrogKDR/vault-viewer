@@ -5,7 +5,7 @@ import { renderNote } from "../lib/render-note";
 import Base from "../layouts/Base.astro";
 import { noteTitle } from "../lib/note-title";
 import AttachmentViewer from "../components/AttachmentViewer.astro";
-import { rawUrlFor } from "../lib/slug";
+import PageActions from "../components/PageActions.astro";
 
 export async function getStaticPaths() {
   const vault = await loadVault();
@@ -23,13 +23,8 @@ const title = file.kind === "note" ? noteTitle(file) : file.path.slice(file.path
 const html = file.kind === "note" ? await renderNote(vault, file, await readFile(file.absolutePath, "utf8"), { title }) : "";
 ---
 <Base title={title} current={file.path}>
-  {file.kind === "note" ? (
-    <main id="content">
-      <article class="note" set:html={html} />
-      {/* The note's markdown source, downloaded under its original file name. */}
-      <p><a class="note-download" href={rawUrlFor(file.path)} download={file.path.slice(file.path.lastIndexOf("/") + 1)}>Download markdown</a></p>
-    </main>
-  ) : (
-    <main id="content"><AttachmentViewer file={file} title={title} /></main>
-  )}
+  <main id="content" class="has-actions">
+    <PageActions file={file} />
+    {file.kind === "note" ? <article class="note" set:html={html} /> : <AttachmentViewer file={file} title={title} />}
+  </main>
 </Base>

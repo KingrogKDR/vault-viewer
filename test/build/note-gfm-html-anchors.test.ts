@@ -52,6 +52,34 @@ describe("GFM, raw HTML and heading anchors in a note", () => {
     expect(note.querySelector("pre > code.language-js")?.textContent).toBe("restock('sugar');\n");
   }, 30_000);
 
+  test("each table sits in its own named, keyboard-focusable scroll region", async () => {
+    const build = await buildFixtureVault({
+      "Pantry.md": [
+        "# Pantry",
+        "",
+        "| Item | Count |",
+        "| ---- | ----- |",
+        "| oats | 3 |",
+        "",
+        "<table><caption>Spices</caption><tr><td>cumin</td></tr></table>",
+        "",
+      ].join("\n"),
+    });
+
+    expect(build.ok).toBe(true);
+    const tables = [...(await build.page("/pantry/")).querySelectorAll("article.note table")];
+    expect(tables).toHaveLength(2);
+    expect(
+      tables.map((table) => {
+        const region = table.parentElement!;
+        return [region.getAttribute("role"), region.getAttribute("tabindex"), region.getAttribute("aria-label")];
+      }),
+    ).toEqual([
+      ["region", "0", "Table"],
+      ["region", "0", "Spices"],
+    ]);
+  }, 30_000);
+
   test("raw HTML written in a note is kept in the page", async () => {
     const build = await buildFixtureVault({
       "Hike.md": [
