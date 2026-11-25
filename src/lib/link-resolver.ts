@@ -1,6 +1,6 @@
 // Link resolver: finds the vault file a link target points to, using
-// Obsidian's rules (spec, "Link resolver module"). Markdown links and images
-// use it now; wikilinks and embeds will too.
+// Obsidian's rules (spec, "Link resolver module"). Markdown links, images,
+// wikilinks and embeds (wikilinks.ts) all use it.
 
 import type { Vault, VaultFile } from "./vault";
 
