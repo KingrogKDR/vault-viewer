@@ -65,6 +65,7 @@ There are three parts:
 29. As the vault owner, I want readable, stable URLs derived from file paths (lowercase, spaces as hyphens), so that links are shareable and bookmarkable.
 30. As the vault owner, I want the build to fail with a clear message when two files map to the same URL, so that no file silently disappears.
 31. As the vault owner, I want a light and dark theme that follows my device setting, so that the site is comfortable at night.
+85. As the vault owner, I want every folder to lead somewhere: to its folder index note (`index.md`, `README.md`, a note named like the folder, or its one "index" note) when it has one, else to a generated folder page listing its subfolders and files with a breadcrumb, so that I can browse folders from the home page, the file tree and breadcrumbs.
 
 ### Viewing other file types
 
@@ -162,6 +163,14 @@ There are three parts:
 - Each path segment becomes a slug: NFC-normalised, lowercased, runs of anything other than letters (with their combining marks), digits, `.`, `_` and `-` collapsed to one `-`, then runs of `-` collapsed to one, with leading and trailing `-` trimmed. Notes drop `.md`. Other files keep their extension.
 - Viewer page: `/<slug>/` (trailing slash, directory format). Raw bytes: `/raw/<slug>` for non-notes and `/raw/<slug>.md` for notes. Large files: `/media/<vault path>`.
 - If two files produce the same slug, the build fails and names both files.
+- Folder page: `/<folder slug>/`, the folder's vault path slugged segment by segment like a vault path, but never dropping `.md`. A folder page that would land on a vault file's output fails the build the same way, naming the vault file and the folder (`Folder/`).
+
+### Folders (story 85)
+- A folder exists when a published vault file is inside it, at any depth; unpublished notes never make, fill or index one.
+- Its **folder index note** is the first match, names compared case-insensitively, among published notes: `Folder/index.md`; `Folder/README.md`; `Folder/<FolderName>.md`; a sibling `<FolderName>.md` next to the folder (the Folder Notes plugin's layout); else the one note directly in the folder whose file name, without `.md`, contains the whole word "index" (letters and digits around it make it part of another word, so `Reindex.md` doesn't count; two such notes means none counts).
+- Every folder gets a generated **folder page**, except one with a sibling `<FolderName>.md`: that note's viewer page already has the folder's URL. The folder page shows a breadcrumb (the vault, then each ancestor), the folder index note first as a prominent link when there is one, then the folder's subfolders and vault files in the file tree's order and names. The index note stays an ordinary note, listed and with its own viewer page.
+- Any link to a folder (home page, breadcrumb, folder page, file tree) goes to its folder index note when it has one, else to its folder page. In the file tree, the folder's `summary` keeps toggling it without JavaScript, and a separate small icon link (named "Open <folder>") next to it goes to that destination.
+- Folder pages are owner-only, like viewer pages: no Share button, nothing under `/s/`.
 
 ### Link resolver module
 - Signature: (vault, linking note's path, link target) → vault file or nothing.

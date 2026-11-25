@@ -92,7 +92,7 @@ describe("home page", () => {
     expect(build.ok).toBe(true);
     const doc = await build.page("/");
     const tree = doc.querySelector("nav.file-tree");
-    expect([...(tree?.querySelectorAll("a") ?? [])].map((a) => a.textContent!.trim())).toEqual(["Watering", "Inbox"]);
+    expect([...(tree?.querySelectorAll("a:not(.folder-link)") ?? [])].map((a) => a.textContent!.trim())).toEqual(["Watering", "Inbox"]);
     expect(tree!.querySelectorAll("[aria-current]")).toHaveLength(0);
     expect(tree!.querySelectorAll("details[open]")).toHaveLength(0);
     expect(doc.querySelector('head meta[name="robots"]')?.getAttribute("content")).toBe("noindex, nofollow");

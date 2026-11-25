@@ -1,33 +1,48 @@
 ---
 import { readFile } from "node:fs/promises";
 import { loadVault, type VaultFile } from "../lib/vault";
+import { foldersOf, type Folder } from "../lib/folders";
 import { renderNote } from "../lib/render-note";
 import Base from "../layouts/Base.astro";
 import { noteTitle } from "../lib/note-title";
 import AttachmentViewer from "../components/AttachmentViewer.astro";
+import FolderPage from "../components/FolderPage.astro";
 import PageActions from "../components/PageActions.astro";
 import { sharedPageFor } from "../lib/share";
 
+// One page per vault file (its viewer page), plus a folder page for each
+// folder that has one. They never share a slug: the build fails first (vault.ts).
 export async function getStaticPaths() {
   const vault = await loadVault();
-  return vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } }));
+  const folders = [...foldersOf(vault.files).values()].filter((folder) => folder.hasPage);
+  return [
+    ...vault.files.map((file) => ({ params: { slug: file.slug }, props: { file } })),
+    ...folders.map((folder) => ({ params: { slug: folder.slug }, props: { folder } })),
+  ];
 }
 
-// `astro dev` caches getStaticPaths props, so take the vault file from the
-// current vault read (shared across the build, fresh in dev) to see edits.
-const { file: listed } = Astro.props as { file: VaultFile };
+// `astro dev` caches getStaticPaths props, so take the vault file or folder
+// from the current vault read (shared across the build, fresh in dev) to see edits.
+const props = Astro.props as { file: VaultFile } | { folder: Folder };
 const vault = await loadVault();
-const file = vault.files.find((f) => f.path === listed.path) ?? listed;
+const folder = "folder" in props ? (foldersOf(vault.files).get(props.folder.path) ?? props.folder) : undefined;
+const file = "file" in props ? (vault.files.find((f) => f.path === props.file.path) ?? props.file) : undefined;
 // A note's title is chosen by noteTitle; an attachment's is its file name.
-const title = file.kind === "note" ? noteTitle(file) : file.path.slice(file.path.lastIndexOf("/") + 1);
+const title = !file ? folder!.name : file.kind === "note" ? noteTitle(file) : file.path.slice(file.path.lastIndexOf("/") + 1);
 // The rendered body opens with the note's one h1, showing `title`.
-const html = file.kind === "note" ? await renderNote(vault, file, await readFile(file.absolutePath, "utf8"), { title }) : "";
+const html = file?.kind === "note" ? await renderNote(vault, file, await readFile(file.absolutePath, "utf8"), { title }) : "";
 // A shared note's page gets a Share button, when the build shares.
-const shareUrl = sharedPageFor(vault, file)?.url;
+const shareUrl = file && sharedPageFor(vault, file)?.url;
 ---
-<Base title={title} current={file.path}>
-  <main id="content" class="has-actions">
-    <PageActions file={file} shareUrl={shareUrl} />
-    {file.kind === "note" ? <article class="note" set:html={html} /> : <AttachmentViewer file={file} title={title} />}
-  </main>
-</Base>
+{file ? (
+  <Base title={title} current={file.path}>
+    <main id="content" class="has-actions">
+      <PageActions file={file} shareUrl={shareUrl} />
+      {file.kind === "note" ? <article class="note" set:html={html} /> : <AttachmentViewer file={file} title={title} />}
+    </main>
+  </Base>
+) : (
+  <Base title={title} currentFolder={folder!.path}>
+    <FolderPage folder={folder!} />
+  </Base>
+)}

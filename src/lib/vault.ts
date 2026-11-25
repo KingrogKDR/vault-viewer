@@ -10,6 +10,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { promisify } from "node:util";
 import { rawPathFor, slugFor } from "./slug";
+import { foldersOf } from "./folders";
 import { parseFrontmatter, type Frontmatter } from "./frontmatter";
 import { openingHeadingText } from "./opening-heading";
 
@@ -237,24 +238,39 @@ function assertNothingUnderShared(files: VaultFile[]): void {
   }
 }
 
+/** Something the build writes output for: a vault file, or a folder with a folder page (named `Folder/`). */
+interface OutputOwner {
+  path: string;
+  slug: string;
+  outputs: string[];
+}
+
 /**
- * Fail when two vault files would be written to the same place, so neither
- * silently loses its page or raw file: the same output path (e.g. a shared
- * slug), or one's file where the other needs a folder (raw file `raw/foo`
- * against `raw/foo/index.html`, the viewer page of a note `raw/foo.md`).
+ * Fail when two vault files, or a vault file and a folder page, would be
+ * written to the same place, so neither silently loses its page or raw file:
+ * the same output path (e.g. a shared slug), or one's file where the other
+ * needs a folder (raw file `raw/foo` against `raw/foo/index.html`, the viewer
+ * page of a note `raw/foo.md`).
  */
 function assertNoOutputClashes(files: VaultFile[]): void {
-  const owners = new Map<string, VaultFile>();
-  for (const file of files) {
-    for (const out of outputPathsFor(file)) if (!owners.has(out)) owners.set(out, file);
+  const all: OutputOwner[] = [
+    ...files.map((file) => ({ path: file.path, slug: file.slug, outputs: outputPathsFor(file) })),
+    // A folder page; keep in step with src/pages/[...slug].astro.
+    ...[...foldersOf(files).values()]
+      .filter((folder) => folder.hasPage)
+      .map((folder) => ({ path: `${folder.path}/`, slug: folder.slug, outputs: [`${folder.slug}/index.html`] })),
+  ];
+  const owners = new Map<string, OutputOwner>();
+  for (const file of all) {
+    for (const out of file.outputs) if (!owners.has(out)) owners.set(out, file);
   }
 
   const clashes = new Set<string>();
-  const clash = (first: VaultFile, second: VaultFile, why: string) => {
+  const clash = (first: OutputOwner, second: OutputOwner, why: string) => {
     if (first.path !== second.path) clashes.add(`"${first.path}" and "${second.path}" ${why}`);
   };
-  for (const file of files) {
-    for (const out of outputPathsFor(file)) {
+  for (const file of all) {
+    for (const out of file.outputs) {
       const owner = owners.get(out)!;
       clash(owner, file, owner.slug === file.slug ? `both have the URL slug "${file.slug}"` : `would both be written to ${out}`);
       const segments = out.split("/");
@@ -267,7 +283,7 @@ function assertNoOutputClashes(files: VaultFile[]): void {
   }
   if (clashes.size > 0) {
     throw new Error(
-      `Vault files collide in the site's output. Rename one file in each pair:\n${[...clashes].map((c) => `  - ${c}`).join("\n")}`,
+      `Vault files collide in the site's output. Rename one file or folder in each pair:\n${[...clashes].map((c) => `  - ${c}`).join("\n")}`,
     );
   }
 }

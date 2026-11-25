@@ -7,7 +7,7 @@
 // button is a label for a checkbox that precedes the tree, so CSS alone
 // (`:checked ~ .file-tree`) shows it: no JavaScript.
 import { loadVault } from "../lib/vault";
-import { buildFileTree } from "../lib/file-tree";
+import { vaultFileTree } from "../lib/folders";
 import FileTree from "../components/FileTree.astro";
 // The pastel journal theme and fonts, shared with the shared page layout (Shared.astro).
 import "../styles/notebook.css";
@@ -17,10 +17,12 @@ interface Props {
   title: string;
   /** Vault path of the vault file this page shows; omit on pages that show none. */
   current?: string;
+  /** Vault path of the folder a folder page shows; omit on other pages. */
+  currentFolder?: string;
 }
 
-const { title, current } = Astro.props;
-const tree = buildFileTree((await loadVault()).files);
+const { title, current, currentFolder } = Astro.props;
+const tree = vaultFileTree((await loadVault()).files);
 ---
 <!doctype html>
 <html lang="en">
@@ -44,7 +46,7 @@ const tree = buildFileTree((await loadVault()).files);
       <a class="site-name" href="/">Vault</a>
     </header>
     <nav class="file-tree" id="file-tree" aria-label="Files">
-      <FileTree entries={tree} current={current} />
+      <FileTree entries={tree} current={current} currentFolder={currentFolder} />
     </nav>
     <slot />
   </body>
