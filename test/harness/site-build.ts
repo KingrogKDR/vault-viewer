@@ -22,8 +22,16 @@ export type FixtureFiles = Record<string, string | Uint8Array>;
 
 const tempDirs: string[] = [];
 
-async function makeTempDir(prefix: string): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), `vault-viewer-${prefix}-`));
+/**
+ * Output directories live inside the repo (gitignored `.astro/`): when the out
+ * dir is outside the cwd, Astro stages built assets (e.g. font files) in the
+ * repo and renames them into the out dir, which fails across filesystems.
+ */
+const OUT_PARENT = join(REPO_ROOT, ".astro", "test-builds");
+
+async function makeTempDir(prefix: string, parent = tmpdir()): Promise<string> {
+  await mkdir(parent, { recursive: true });
+  const dir = await mkdtemp(join(parent, `vault-viewer-${prefix}-`));
   tempDirs.push(dir);
   return dir;
 }
@@ -111,7 +119,7 @@ export interface BuildOptions {
 
 /** Run the real site build against a vault into a fresh temporary output directory. */
 export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> {
-  const outDir = await makeTempDir("out");
+  const outDir = await makeTempDir("out", OUT_PARENT);
   const env: Record<string, string | undefined> = { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" };
   delete env.VAULT_DIR;
   if (vaultDir !== null) env.VAULT_DIR = vaultDir;

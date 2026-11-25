@@ -9,6 +9,8 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@fontsource-variable/caveat": "^5.3.0",
+    "@fontsource-variable/source-serif-4": "^5.3.1",
     "astro": "7.4.13",
     "mdast-util-to-string": "^4.0.0",
     "rehype-raw": "^7.0.0",

@@ -24,12 +24,12 @@ const html = file.kind === "note" ? await renderNote(vault, file, await readFile
 ---
 <Base title={title} current={file.path}>
   {file.kind === "note" ? (
-    <main>
+    <main id="content">
       <article class="note" set:html={html} />
       {/* The note's markdown source, downloaded under its original file name. */}
       <p><a class="note-download" href={rawUrlFor(file.path)} download={file.path.slice(file.path.lastIndexOf("/") + 1)}>Download markdown</a></p>
     </main>
   ) : (
-    <main><AttachmentViewer file={file} title={title} /></main>
+    <main id="content"><AttachmentViewer file={file} title={title} /></main>
   )}
 </Base>
