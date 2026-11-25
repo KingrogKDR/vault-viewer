@@ -5,7 +5,7 @@ A read-only, offline-capable website for one person's Obsidian vault. It is buil
 ## Read before working
 
 1. `CONTEXT.md`: the glossary. Use its terms in code, tests, issues and commits (e.g. **vault file**, **note**, **attachment**, **large file**, **deploy**).
-2. `docs/specs/vault-viewer.md`: the full spec. Its user stories, decisions, test seams and 7 milestones are what we build against.
+2. `docs/specs/vault-viewer.md`: the full spec. Its user stories, decisions, test seams and 8 milestones are what we build against.
 3. `docs/adr/`: decisions that are hard to reverse. If a change contradicts one, say so explicitly instead of quietly working around it.
 
 ## Hard rules

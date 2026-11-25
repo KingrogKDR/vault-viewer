@@ -31,8 +31,16 @@ A note whose frontmatter says `publish: false`. To the site it does not exist, a
 _Avoid_: private note, draft, hidden note
 
 **Owner**:
-The one person who edits the vault and reads the site. There are no other users.
+The one person who edits the vault and reads the whole site. There are no other users with logins.
 _Avoid_: user, admin, author
+
+**Shared note**:
+A note whose frontmatter says `share: true`. The owner chose to let anyone with its link read it.
+_Avoid_: public note, published note
+
+**Visitor**:
+Anyone other than the owner who opens a shared page. A visitor sees that page and nothing else of the vault.
+_Avoid_: guest, reader, user
 
 ### Links
 
@@ -89,6 +97,10 @@ _Avoid_: file page, detail page
 **Viewer**:
 How a viewer page displays a given kind of vault file (rendered note, image, PDF, video, sandboxed HTML, and so on).
 _Avoid_: renderer, preview, player
+
+**Shared page**:
+The page a visitor sees for a shared note, at an unguessable link outside Access. It is a separate output from the note's viewer page.
+_Avoid_: public page, share link (the link is just the shared page's URL)
 
 **Raw file**:
 A vault file's original bytes, served by the site for download or for embedding.
@@ -166,6 +178,7 @@ _Avoid_: logout, auth error
 - Each **vault file** has exactly one **slug** and one **viewer page**.
 - A **large file** is a **vault file** whose bytes are found through the **media manifest** by **media key**, not through git.
 - A **link** goes through **resolution** to one **vault file**, or it is a **broken link**.
+- A **shared note** has one **viewer page**, for the **owner**, and one **shared page**, for **visitors**.
 - **Sync** produces the vault commits that a **build** consumes; a **deploy** turns a build into the live **site** and records the **deployed commit**.
 
 ## Example dialogue
@@ -176,4 +189,5 @@ _Avoid_: logout, auth error
 ## Flagged ambiguities
 
 - "Media" was used both for any image, video or audio and for files over 20 MB. Resolved: **large file** means over 20 MB; image, video and audio are **viewers**.
+- "Public" could mean a shared page or the site repo, which is public on GitHub. Resolved: pages are **shared**; only the repo is called public.
 - "Publish" was used both for "eligible for the site" (`publish: false`) and for deploying. Resolved: **unpublished note** keeps the frontmatter meaning; going live is a **deploy**.
