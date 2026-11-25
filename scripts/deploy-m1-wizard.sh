@@ -188,9 +188,11 @@ finish() {
 # first manual deploy. Real vault content is uploaded only after an automated
 # check proves Access turns away unauthenticated requests (ADR-0002).
 # Re-run any time to re-check protection (e.g. after changing Pages settings).
+# Stage 9 (optional, #31) sets up shared pages: the SHARE_SECRET build secret
+# and an Access application that lets only /s/ through (ADR-0006).
 # Run from anywhere inside the repo: scripts/deploy-m1-wizard.sh
 
-TOTAL_STAGES=9
+TOTAL_STAGES=10
 
 # Pinned: an exact wrangler release, used everywhere below.
 WRANGLER="wrangler@4.160.0"
@@ -243,6 +245,21 @@ access_gate() {
     printf '\n  %s%sSTOP: the site is reachable without logging in. Do not deploy vault content.%s\n' "$BOLD" "$RED" "$RESET"
     note "Fix the Access applications (stage 7), wait a minute, then re-run this wizard."
     exit 1
+  fi
+}
+
+# share_gate HOST: /s/ must be let through without a login (ADR-0006). The
+# rest of the site is checked by access_gate, which must still pass.
+share_gate() {
+  local host="$1" code loc loc_host=""
+  read -r code loc < <(curl -s -A "$UA" -o /dev/null -w '%{http_code} %{redirect_url}\n' --max-time 20 "https://$host/s/" || printf '000\n')
+  [[ -n "${loc:-}" ]] && loc_host=$(_host_of "$loc")
+  if [[ "$loc_host" == *.cloudflareaccess.com || "$code" == "000" ]]; then
+    printf '  %s✗ https://%s/s/ → %s %s (not let through)%s\n' "$RED" "$host" "$code" "$loc_host" "$RESET"
+    warn "Check the /s/ application's path and its Bypass policy, wait a minute, then re-run."
+    SKIPPED+=("Shared pages: /s/ still asks for a login; fix the /s/ Access application")
+  else
+    printf '  %s✓ https://%s/s/ → %s without a login%s\n' "$GREEN" "$host" "$code" "$RESET"
   fi
 }
 
@@ -367,6 +384,41 @@ printf '\n  %s✓ Access is protecting production, robots.txt and previews.%s\n'
 pause
 
 # ── 9 ─────────────────────────────────────────────────────────────────────
+stage "Shared pages outside Access (optional)"
+say "A note with 'share: true' gets a page at /s/<token>/ that anyone with the link can read (ADR-0006)."
+say "It takes a build secret that makes the links unguessable, and an Access application that lets /s/ through."
+SHARE_SECRET=""
+if confirm "Set up sharing now? (Skip it and nothing is ever shared; re-run this wizard later to add it.)"; then
+  note "The secret signs every shared link. The same secret keeps links stable across deploys; a new one"
+  note "revokes every shared link at once. Keep it in your password manager: this wizard never saves it."
+  ask_secret SHARE_SECRET "Paste your existing share secret (Enter generates a new one):"
+  if [[ -z "$SHARE_SECRET" ]]; then
+    SHARE_SECRET=$(openssl rand -base64 32)
+    say "A new secret. Copy it into your password manager now, then clear your scrollback:"
+    printf '\n    %s\n\n' "$SHARE_SECRET"
+    pause "Saved it? Press Enter"
+  fi
+  (( ${#SHARE_SECRET} >= 32 )) || { warn "The secret must be at least 32 characters (the build refuses a shorter one)."; exit 1; }
+  set_secret SHARE_SECRET "$SHARE_SECRET"
+  note "(For the deploy workflow. This run's build below gets it directly.)"
+  open_url "https://one.dash.cloudflare.com/"
+  step "Zero Trust > Access > Applications > Add an application > Self-hosted."
+  step "Application name: e.g. 'Vault viewer shared pages'."
+  step "Public hostname: domain $CF_PAGES_HOST, path: s/   (production only; previews stay fully protected)."
+  step "Add a policy: Action Bypass; Include > Everyone. Nothing else. Save the application."
+  warn "Bypass belongs ONLY on this /s/ application. Leave the $CF_PAGES_HOST application as it is (Allow, your email)."
+  note "Access applies the application with the most specific path, so only /s/ skips the login."
+  note "The site also puts its CSS and fonts under /s/_astro/ so shared pages are styled; they hold no vault content."
+  pause "Bypass application saved? Press Enter to check it"
+  share_gate "$CF_PAGES_HOST"
+  say "And the rest of the site must still turn strangers away:"
+  access_gate "$CF_PAGES_HOST"
+else
+  SKIPPED+=("Shared pages: re-run this wizard to set SHARE_SECRET and the /s/ Access application when you want them")
+fi
+pause
+
+# ── 10 ────────────────────────────────────────────────────────────────────
 stage "Build your real vault and deploy it"
 ask VAULT_DIR "Vault directory (Enter for $HOME/Documents/Obsidian):"
 VAULT_DIR="${VAULT_DIR:-$HOME/Documents/Obsidian}"
@@ -374,7 +426,8 @@ VAULT_DIR="${VAULT_DIR:-$HOME/Documents/Obsidian}"
 if ! confirm "Build $VAULT_DIR and upload it to $CF_PAGES_HOST?"; then
   warn "Stopped before uploading. Re-run when ready."; exit 0
 fi
-VAULT_DIR="$VAULT_DIR" bun run build
+# An empty SHARE_SECRET (sharing skipped) builds with sharing off.
+SHARE_SECRET="$SHARE_SECRET" VAULT_DIR="$VAULT_DIR" bun run build
 say "Re-checking protection right before upload:"
 access_gate "$CF_PAGES_HOST"
 wr pages deploy dist --project-name "$CF_PAGES_PROJECT" --branch main

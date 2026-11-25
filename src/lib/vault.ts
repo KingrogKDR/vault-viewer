@@ -51,6 +51,8 @@ export interface Note extends VaultFileBase {
   frontmatter: Frontmatter;
   /** Plain text of the note's opening `# Heading`, if it opens with one. */
   openingHeading?: string;
+  /** Whether it is a shared note (frontmatter `share`); it gets a shared page only when the build has a share secret. */
+  shared: boolean;
 }
 
 /** Any vault file that is not a note. The vault reader never reads its contents. */
@@ -107,13 +109,14 @@ export async function readVault(dir: string): Promise<Vault> {
       const frontmatter = parseFrontmatter(source);
       // An unpublished note stops here, so nothing downstream ever sees it.
       if (isUnpublished(frontmatter)) continue;
-      files.push({ ...base, kind, frontmatter, openingHeading: openingHeadingText(source) });
+      files.push({ ...base, kind, frontmatter, openingHeading: openingHeadingText(source), shared: isShared(frontmatter) });
     } else {
       files.push({ ...base, kind });
     }
   }
   files.sort((a, b) => a.path.localeCompare(b.path));
   assertNoOutputClashes(files);
+  assertNothingUnderShared(files);
   return { dir, files };
 }
 
@@ -125,6 +128,16 @@ export async function readVault(dir: string): Promise<Vault> {
 function isUnpublished(frontmatter: Frontmatter): boolean {
   const publish = frontmatter.publish;
   return publish === false || (typeof publish === "string" && publish.toLowerCase() === "false");
+}
+
+/**
+ * Whether a note is a shared note (ADR-0006): its frontmatter `share` is
+ * `true`, or the string "true" in any case. Anything else leaves it unshared.
+ * Unpublished notes never get this far, so they are never shared.
+ */
+function isShared(frontmatter: Frontmatter): boolean {
+  const share = frontmatter.share;
+  return share === true || (typeof share === "string" && share.toLowerCase() === "true");
 }
 
 /**
@@ -206,6 +219,22 @@ async function folderWalk(dir: string): Promise<string[]> {
  */
 function outputPathsFor(file: VaultFile): string[] {
   return [`${file.slug}/index.html`, `raw/${rawPathFor(file.path)}`];
+}
+
+/**
+ * Fail when a vault file's viewer page would land under `/s/`: that path is
+ * for shared pages and sits outside Access (ADR-0006), so the page and its
+ * file tree would be readable by anyone. Checked with or without a share
+ * secret, since the Access bypass doesn't depend on the build.
+ */
+function assertNothingUnderShared(files: VaultFile[]): void {
+  const exposed = files.filter((file) => file.slug === "s" || file.slug.startsWith("s/")).map((file) => `"${file.path}"`);
+  if (exposed.length > 0) {
+    throw new Error(
+      `The site keeps /s/ for shared pages, which are outside Access, so these vault files' pages can't go there. ` +
+        `Rename the vault file or folder that becomes "s": ${exposed.join(", ")}`,
+    );
+  }
 }
 
 /**

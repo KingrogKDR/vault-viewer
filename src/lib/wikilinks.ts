@@ -17,7 +17,7 @@ import { toString } from "hast-util-to-string";
 import type { Processor } from "unified";
 import { resolveLink } from "./link-resolver";
 import { noteTitle } from "./note-title";
-import { rawUrlFor, viewerUrlFor } from "./slug";
+import type { LinkUrls } from "./resolve-links";
 import type { Note, Vault, VaultFile } from "./vault";
 
 /** A parsed wikilink or embed, as written. */
@@ -153,6 +153,8 @@ export interface WikilinksOptions {
   chain: string[];
   /** Render `note`'s content as an embed, with `chain` as its own chain. */
   renderEmbed: (note: Note, chain: string[]) => Promise<Root>;
+  /** Where links and media point; a target it gives no URL for is a broken link. */
+  urls: LinkUrls;
 }
 
 /** How many notes deep embeds may nest (the page's own note is depth 1). */
@@ -196,9 +198,11 @@ function broken(link: WikiLink): Element {
   return element("a", { className: ["broken-link"] }, [text(label)]);
 }
 
-/** A plain link to `file`'s viewer page. */
-function linkTo(file: VaultFile, link: WikiLink): Element {
-  return element("a", { href: viewerUrlFor(file.slug) + anchorFor(link.fragment) }, [text(link.alias ?? defaultText(link))]);
+/** A plain link to `file` (its viewer page, or wherever `urls` points), or a broken link when `urls` gives none. */
+function linkTo(file: VaultFile, link: WikiLink, urls: LinkUrls): Element {
+  const href = urls.link(file);
+  if (href === undefined) return broken(link);
+  return element("a", { href: href + anchorFor(link.fragment) }, [text(link.alias ?? defaultText(link))]);
 }
 
 /** `|300` or `|300x200` on an image embed: its display size. */
@@ -226,42 +230,46 @@ function section(tree: Root, fragment: string[]): RootContent[] | undefined {
 
 /** A note embed: the note's rendered content (or one section of it) in a `div.embed`. */
 async function embedNote(target: Note, link: WikiLink, options: WikilinksOptions): Promise<Element> {
-  const href = viewerUrlFor(target.slug);
-  const title = noteTitle(target);
   if (options.chain.includes(target.path) || options.chain.length >= MAX_EMBED_DEPTH) {
-    // A visible stop instead of the content, so embeds can never loop.
+    // A visible stop instead of the content, so embeds can never loop. It
+    // names the note only where the page may link to it.
+    const href = options.urls.link(target);
+    const stop = "Embed not shown, it nests too deep";
     return element("div", { className: ["embed", "embed-stopped"] }, [
-      element("p", {}, [text("Embed not shown, it nests too deep: "), element("a", { href }, [text(title)])]),
+      element("p", {}, href === undefined ? [text(`${stop}.`)] : [text(`${stop}: `), element("a", { href }, [text(noteTitle(target))])]),
     ]);
   }
   const tree = await options.renderEmbed(target, [...options.chain, target.path]);
   const wanted = link.fragment.length > 0 && !link.fragment.at(-1)!.startsWith("^") ? section(tree, link.fragment) : tree.children;
-  if (!wanted) return linkTo(target, { ...link, fragment: [] });
+  if (!wanted) return linkTo(target, { ...link, fragment: [] }, options.urls);
   return element("div", { className: ["embed"] }, wanted as ElementContent[]);
 }
 
 /** The HTML for one wikilink or embed. */
 async function replacementFor(link: WikiLink, options: WikilinksOptions): Promise<Element> {
-  const { vault, note } = options;
+  const { vault, note, urls } = options;
   if (link.target === "" && !link.embed) {
     // [[#Heading]]: within the note. Inside an embed, the anchor belongs to the embedded note's own page.
-    const page = options.chain.length > 1 ? viewerUrlFor(note.slug) : "";
     const anchor = anchorFor(link.fragment);
-    return element("a", { href: page + anchor || viewerUrlFor(note.slug) }, [text(link.alias ?? defaultText(link))]);
+    if (options.chain.length === 1 && anchor) return element("a", { href: anchor }, [text(link.alias ?? defaultText(link))]);
+    return linkTo(note, link, urls);
   }
   const file = link.target === "" ? note : resolveLink(vault, note.path, link.target);
   if (!file) return broken(link);
-  if (!link.embed) return linkTo(file, link);
+  if (!link.embed) return linkTo(file, link, urls);
 
   if (file.kind === "note") return embedNote(file, link, options);
-  const src = rawUrlFor(file.path);
+  if (file.kind === "other") {
+    // Other kinds (pdf, ...) get their inline viewers later; for now, a link.
+    return linkTo(file, link, urls);
+  }
+  const src = urls.media(file);
+  if (src === undefined) return broken(link);
   if (file.kind === "image") {
     const size = imageSize(link.alias);
     return element("img", { src, alt: size || !link.alias ? fileName(file.path) : link.alias, ...size });
   }
-  if (file.kind === "video" || file.kind === "audio") return element(file.kind, { src, controls: true });
-  // Other kinds (pdf, ...) get their inline viewers later; for now, a link.
-  return linkTo(file, link);
+  return element(file.kind, { src, controls: true });
 }
 
 /** Whether a replacement is block content, which can't sit inside a paragraph. */

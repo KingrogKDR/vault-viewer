@@ -215,6 +215,7 @@ There are three parts:
 - Each shared note gets a shared page at `/s/<token>/`, where the token is a base64url HMAC-SHA256 of its vault path under `SHARE_SECRET` (a build secret). Its images and embedded raw files are copied under `/s/<token>/`.
 - Links on a shared page go through the same resolver. A target that is itself a shared note links to its shared page; anything else keeps its text and loses its target, with the broken-link class.
 - Cloudflare Access gets one extra application for the `/s/` path with a Bypass (Everyone) policy. Part of the manual setup checklist.
+- Nothing a shared page loads leaves `/s/`: the site's bundled CSS, fonts and scripts are built under `/s/_astro/` (they come from the public repo, never the vault). The site has a vault-free top-level `404.html`, because without one Cloudflare Pages answers unknown URLs, `/s/` ones included, with the home page. No vault file's viewer page may land under `/s/`; the build fails if one would.
 - The service worker never caches or precaches `/s/` pages for the owner.
 
 ### Headers

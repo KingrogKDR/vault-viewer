@@ -1,21 +1,80 @@
 ---
-// A viewer page's actions, in the paper sheet's top-right corner: for now one
-// outline button that downloads the vault file's raw file under its original
-// file name. Later actions (e.g. Share) go beside it in the same row.
-// A plain link with `download`: no JavaScript.
+// A viewer page's actions, in the paper sheet's top-right corner, as outline
+// buttons in one row:
+// - Share, on a shared note's page when the build shares (ADR-0006): a plain
+//   link to its shared page, which the script below enhances to open the
+//   device's share sheet, or else copy the link with a visible status.
+// - Download: the vault file's raw file under its original file name, a
+//   plain link with `download`.
 import type { VaultFile } from "../lib/vault";
 import { rawUrlFor } from "../lib/slug";
 
 interface Props {
   file: VaultFile;
+  /** The shared page's URL, when this vault file has one. */
+  shareUrl?: string;
 }
 
-const { file } = Astro.props;
+const { file, shareUrl } = Astro.props;
 const fileName = file.path.slice(file.path.lastIndexOf("/") + 1);
 // A note's raw file is its markdown source; say so, since the page shows it rendered.
 const label = file.kind === "note" ? "Download .md" : "Download";
 ---
 <div class="page-actions">
+  {shareUrl && (
+    <span class="share">
+      <a class="button share-button" href={shareUrl}>
+        <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
+        </svg>
+        Share
+      </a>
+      <!-- The visible copy status is also the live region; outside the link, so it is announced. -->
+      <span class="share-status" role="status" aria-live="polite"></span>
+      {/*
+        Inline and only here, so pages without a Share button stay free of
+        JavaScript. It opens the device's share sheet where there is one,
+        else copies the absolute link and says so in the status.
+      */}
+      <script is:inline>
+        {
+          const link = document.currentScript.parentElement.querySelector("a.share-button");
+          const status = link.nextElementSibling;
+          let timer;
+          let lastMessage = "";
+          const report = (message) => {
+            clearTimeout(timer);
+            // VoiceOver skips a message identical to the last one; a no-break space makes it differ.
+            if (message === lastMessage) message += " ";
+            lastMessage = message;
+            status.textContent = "";
+            requestAnimationFrame(() => (status.textContent = message));
+            timer = setTimeout(() => (status.textContent = ""), 2500);
+          };
+          link.addEventListener("click", async (event) => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            const data = { title: document.title, url: link.href };
+            if (navigator.canShare?.(data)) {
+              try {
+                await navigator.share(data);
+                return;
+              } catch (error) {
+                // Dismissing the share sheet is not a failure; anything else falls back to copying.
+                if (error.name === "AbortError") return;
+              }
+            }
+            try {
+              await navigator.clipboard.writeText(link.href);
+              report("Link copied");
+            } catch {
+              report("Couldn't copy the link");
+            }
+          });
+        }
+      </script>
+    </span>
+  )}
   <a class="button" href={rawUrlFor(file.path)} download={fileName}>
     <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 15V3" /><path d="m7 10 5 5 5-5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
