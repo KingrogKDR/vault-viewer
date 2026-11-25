@@ -8,7 +8,9 @@ import { noteTitle } from "../lib/note-title";
 import AttachmentViewer from "../components/AttachmentViewer.astro";
 import FolderPage from "../components/FolderPage.astro";
 import PageActions from "../components/PageActions.astro";
+import Breadcrumbs from "../components/Breadcrumbs.astro";
 import { sharedPageFor } from "../lib/share";
+import { viewerUrlFor } from "../lib/slug";
 
 // One page per vault file (its viewer page), plus a folder page for each
 // folder that has one. They never share a slug: the build fails first (vault.ts).
@@ -38,6 +40,7 @@ const shareUrl = file && sharedPageFor(vault, file)?.url;
   <Base title={title} current={file.path}>
     <main id="content" class="has-actions">
       <PageActions file={file} shareUrl={shareUrl} />
+      <Breadcrumbs folderPath={file.path.slice(0, Math.max(file.path.lastIndexOf("/"), 0))} name={title} href={viewerUrlFor(file.slug)} />
       {file.kind === "note" ? <article class="note" set:html={html} /> : <AttachmentViewer file={file} title={title} />}
     </main>
   </Base>

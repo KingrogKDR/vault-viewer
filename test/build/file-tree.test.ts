@@ -173,4 +173,19 @@ describe("file tree", () => {
     expect(narrow).toMatch(/(^|\})\s*\.file-tree\s*\{[^}]*display:\s*none/);
     expect(narrow).toMatch(/#file-tree-toggle:checked\s*~\s*\.file-tree\s*\{[^}]*display:\s*block/);
   }, 30_000);
+
+  test("on a folder page, the current folder's link is filled with its top-level folder's pastel, as a current vault file is", async () => {
+    const build = await buildFixtureVault({ "Garden/Herbs/Basil.md": "# Basil\n" });
+
+    expect(build.ok).toBe(true);
+    const doc = await build.page("/garden/herbs/");
+    expect(doc.querySelector('nav.file-tree a.folder-link[aria-current="page"]')?.getAttribute("href")).toBe("/garden/herbs/");
+    const css = (await pageCss(build, doc)).replace(/\s+/g, " ");
+    // Every rule that styles the current folder link and sets a fill uses the folder's pastel (--tab).
+    const fills = [...css.matchAll(/([^{}]*\.folder-link[^{}]*\[aria-current=["']?page["']?\][^{}]*)\{([^}]*)\}/g)]
+      .map((m) => m[2].match(/background(?:-color)?:\s*([^;]+)/)?.[1]?.trim())
+      .filter(Boolean);
+    expect(fills.length).toBeGreaterThan(0);
+    for (const fill of fills) expect(fill).toBe("var(--tab)");
+  }, 30_000);
 });

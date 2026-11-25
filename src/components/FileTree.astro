@@ -64,10 +64,15 @@ const holds = (folderPath: string) =>
     color: var(--muted-foreground);
   }
   .folder-link svg { display: block; inline-size: 1rem; block-size: 1.43em; }
+  /*
+   * The current folder on its folder page: filled with its top-level folder's
+   * pastel (--tab, set by position in notebook.css and inherited by nested
+   * folders), like a current vault file. Forced colours: notebook.css's outline.
+   */
   :global(.file-tree) .folder-link[aria-current="page"] {
     margin: 0;
     border-radius: calc(var(--radius) - 2px);
-    background: var(--highlight);
+    background: var(--tab);
     color: var(--foreground);
     box-shadow: none;
   }

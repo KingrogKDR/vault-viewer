@@ -238,3 +238,47 @@ describe("folder pages", () => {
     expect(build.output).toContain('"Garden/"');
   }, 30_000);
 });
+
+/** A page's breadcrumb trail: [text, href, aria-current] for each crumb. */
+function breadcrumbs(doc: Document) {
+  const crumbs = doc.querySelector('body > main nav[aria-label="Breadcrumbs"] ol');
+  if (!crumbs) return undefined;
+  return [...crumbs.querySelectorAll(":scope > li > a")].map((a) => [a.textContent!.trim(), a.getAttribute("href"), a.getAttribute("aria-current")]);
+}
+
+describe("breadcrumbs on viewer pages", () => {
+  test("a note's and an attachment's viewer pages show the vault, each ancestor folder to its destination, then the file itself, before the h1", async () => {
+    const build = await buildFixtureVault({
+      "Garden/README.md": "# Garden\n",
+      "Garden/Vegetables/Roots/Carrots.md": "---\ntitle: Growing carrots\n---\nSow thinly.\n",
+      "Garden/Vegetables/Roots/Bed.png": "png",
+    });
+
+    expect(build.ok).toBe(true);
+    const ancestors = [
+      ["Vault", "/", null],
+      ["Garden", "/garden/readme/", null],
+      ["Vegetables", "/garden/vegetables/", null],
+      ["Roots", "/garden/vegetables/roots/", null],
+    ];
+    const note = await build.page("/garden/vegetables/roots/carrots/");
+    expect(breadcrumbs(note)).toEqual([...ancestors, ["Growing carrots", "/garden/vegetables/roots/carrots/", "page"]]);
+    const attachment = await build.page("/garden/vegetables/roots/bed.png/");
+    expect(breadcrumbs(attachment)).toEqual([...ancestors, ["Bed.png", "/garden/vegetables/roots/bed.png/", "page"]]);
+    // The trail comes before the page's one h1.
+    for (const doc of [note, attachment]) {
+      const order = [...doc.querySelectorAll('body > main nav[aria-label="Breadcrumbs"], body > main h1')].map((el) => el.tagName);
+      expect(order).toEqual(["NAV", "H1"]);
+    }
+  }, 30_000);
+
+  test("a vault file at the vault root shows just the vault and itself", async () => {
+    const build = await buildFixtureVault({ "Inbox.md": "# Inbox\n" });
+
+    expect(build.ok).toBe(true);
+    expect(breadcrumbs(await build.page("/inbox/"))).toEqual([
+      ["Vault", "/", null],
+      ["Inbox", "/inbox/", "page"],
+    ]);
+  }, 30_000);
+});

@@ -102,10 +102,13 @@ describe("what a shared page shows", () => {
     0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
   ]);
   // Names that must never reach a visitor: the unshared and unpublished notes' titles, file names and folders.
-  const SECRETS = ["Wedding Seating", "wedding-seating", "Seating Plan", "Quarrels", "quarrels", "Family Matters", "family-matters", "Pictures", "pictures"];
+  const SECRETS = ["Wedding Seating", "wedding-seating", "Seating Plan", "Quarrels", "quarrels", "Family Matters", "family-matters", "Pictures", "pictures",
+    // The folders a nested shared note sits in.
+    "Allotments", "allotments", "Plot Seven", "plot-seven"];
 
   let site: SiteBuild;
   let sharedUrl: string;
+  let nestedSharedUrl: string;
 
   beforeAll(async () => {
     site = await buildFixtureVault(
@@ -119,6 +122,7 @@ describe("what a shared page shows", () => {
           "",
         ].join("\n\n"),
         "Garden/Shed.md": "---\nshare: true\n---\n# Shed\n\nTools.\n",
+        "Allotments/Plot Seven/Compost.md": "---\nshare: true\n---\n# Compost heap\n\nTurn it weekly.\n",
         "Garden/Pictures/Beds.png": PNG,
         "Garden/Pictures/Pond.png": PNG,
         "Wedding Seating.md": "# Seating Plan\n\nPrivate.\n",
@@ -130,6 +134,7 @@ describe("what a shared page shows", () => {
     );
     expect(site.ok).toBe(true);
     sharedUrl = (await shareUrlOn(site, "/garden/plan/"))!;
+    nestedSharedUrl = (await shareUrlOn(site, "/allotments/plot-seven/compost/"))!;
   }, 60_000);
 
   test("a link to another shared note goes to that note's shared page; a link to anything else keeps its text and has no href", async () => {
@@ -173,8 +178,19 @@ describe("what a shared page shows", () => {
 
   test("the shared page has no way out: no link to /, no file tree, no download, no header; and the robots meta", async () => {
     const doc = await site.page(sharedUrl);
-    expect(doc.querySelector("nav, .file-tree, .site-header, [download], .page-actions")).toBeNull();
+    // The only nav is the title-only breadcrumb (next test).
+    expect(doc.querySelector('nav:not([aria-label="Breadcrumbs"]), .file-tree, .site-header, [download], .page-actions')).toBeNull();
     expect(doc.querySelector('head meta[name="robots"]')?.getAttribute("content")).toBe("noindex, nofollow");
+  });
+
+  test("the breadcrumb is the shared note's title alone, marked current: no Vault, no folders, no link out of /s/", async () => {
+    for (const [url, title] of [[sharedUrl, "Garden plan"], [nestedSharedUrl, "Compost heap"]]) {
+      const doc = await site.page(url);
+      const items = [...doc.querySelectorAll('body > main nav[aria-label="Breadcrumbs"] ol > li')];
+      expect(items.map((li) => li.textContent!.trim())).toEqual([title]);
+      expect(items[0].querySelector('[aria-current="page"]')?.textContent?.trim()).toBe(title);
+      expect(doc.querySelectorAll('nav[aria-label="Breadcrumbs"] [href]')).toHaveLength(0);
+    }
   });
 
   test("nothing the shared page loads leaves /s/, the only path outside Access: its stylesheets and fonts included", async () => {
