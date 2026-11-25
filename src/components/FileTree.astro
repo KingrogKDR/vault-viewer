@@ -1,23 +1,48 @@
 ---
 // Renders file tree entries as nested lists. Recursive: folders render
 // their own entries through this component.
+//
+// A folder is a `details` whose `summary` (the folder name) only opens and
+// closes it, with no JavaScript. Its link, to its folder index note or folder
+// page, is a separate small icon link pinned to the end of the summary's row.
+// It comes before the `details` in the source, so it is reachable without
+// opening the folder and before the folder's own entries, and so the summary
+// never holds a link (a link inside a summary's button is unreliable for
+// keyboards and screen readers).
 import type { TreeEntry } from "../lib/file-tree";
+import { folderUrlFor } from "../lib/slug";
 
 interface Props {
   entries: TreeEntry[];
   /** Vault path of the vault file being viewed, if any. */
   current?: string;
+  /** Vault path of the folder whose folder page is being viewed, if any. */
+  currentFolder?: string;
 }
 
-const { entries, current } = Astro.props;
+const { entries, current, currentFolder } = Astro.props;
+const holds = (folderPath: string) =>
+  current?.startsWith(`${folderPath}/`) || currentFolder === folderPath || currentFolder?.startsWith(`${folderPath}/`);
 ---
 <ul>
   {entries.map((entry) =>
     entry.kind === "folder" ? (
-      <li>
-        <details open={current?.startsWith(`${entry.path}/`)}>
+      <li class="tree-folder">
+        {entry.href && (
+          <a
+            class="folder-link"
+            href={entry.href}
+            aria-current={currentFolder === entry.path && entry.href === folderUrlFor(entry.path) ? "page" : undefined}
+          >
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 17 17 7M8 7h9v9" />
+            </svg>
+            <span class="visually-hidden">Open {entry.name}</span>
+          </a>
+        )}
+        <details open={holds(entry.path)}>
           <summary>{entry.name}</summary>
-          <Astro.self entries={entry.entries} current={current} />
+          <Astro.self entries={entry.entries} current={current} currentFolder={currentFolder} />
         </details>
       </li>
     ) : (
@@ -25,3 +50,33 @@ const { entries, current } = Astro.props;
     ),
   )}
 </ul>
+
+<style>
+  /* Only Base's tokens; `.file-tree` (Base) raises these over the tree's global link styles. */
+  .tree-folder { position: relative; }
+  :global(.file-tree) .tree-folder > details > summary { padding-inline-end: 2.25rem; }
+  :global(.file-tree) .folder-link {
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0.75rem;
+    margin: 0;
+    padding-inline: 0.5rem;
+    color: var(--muted-foreground);
+  }
+  .folder-link svg { display: block; inline-size: 1rem; block-size: 1.43em; }
+  :global(.file-tree) .folder-link[aria-current="page"] {
+    margin: 0;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--highlight);
+    color: var(--foreground);
+    box-shadow: none;
+  }
+  .visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    text-wrap: nowrap;
+  }
+</style>

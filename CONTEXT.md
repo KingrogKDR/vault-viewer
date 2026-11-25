@@ -94,6 +94,14 @@ _Avoid_: permalink, route, URL path
 The site page for one vault file: a rendered note, or the viewer for an attachment.
 _Avoid_: file page, detail page
 
+**Folder page**:
+The page the build generates for a folder of the vault, at the folder's slug: a breadcrumb, its folder index note if any, then its subfolders and vault files. A folder with a sibling note of the same name gets none, since that note's viewer page has the URL.
+_Avoid_: directory page, folder view, listing
+
+**Folder index note**:
+The note a folder's links lead to: its `index.md`, else `README.md`, else a note named like the folder inside it, else one named like it next to it, else its one note with the word "index" in its name. It stays an ordinary note with its own viewer page.
+_Avoid_: folder note, landing page, index page
+
 **Viewer**:
 How a viewer page displays a given kind of vault file (rendered note, image, PDF, video, sandboxed HTML, and so on).
 _Avoid_: renderer, preview, player
@@ -176,6 +184,7 @@ _Avoid_: logout, auth error
 
 - The **vault** contains **vault files**; each is either a **note** or an **attachment**.
 - Each **vault file** has exactly one **slug** and one **viewer page**.
+- A folder has at most one **folder index note** and at most one **folder page**; links to the folder go to the first, else the second.
 - A **large file** is a **vault file** whose bytes are found through the **media manifest** by **media key**, not through git.
 - A **link** goes through **resolution** to one **vault file**, or it is a **broken link**.
 - A **shared note** has one **viewer page**, for the **owner**, and one **shared page**, for **visitors**.

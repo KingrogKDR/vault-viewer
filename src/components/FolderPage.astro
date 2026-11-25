@@ -1,0 +1,91 @@
+---
+// A folder page's content: a breadcrumb, the folder's index note (if any) as
+// a prominent link, then its subfolders and its vault files, in the file
+// tree's order and with its names. Owner-only: it has no Share button and
+// nothing of it is written under /s/.
+import { loadVault } from "../lib/vault";
+import { foldersOf, vaultFileTree, type Folder } from "../lib/folders";
+import { findTreeFolder, type TreeFile, type TreeFolder } from "../lib/file-tree";
+import { noteTitle } from "../lib/note-title";
+import { folderUrlFor, viewerUrlFor } from "../lib/slug";
+
+interface Props {
+  folder: Folder;
+}
+
+const { folder } = Astro.props;
+const vault = await loadVault();
+const all = foldersOf(vault.files);
+const entries = findTreeFolder(vaultFileTree(vault.files), folder.path)?.entries ?? [];
+const folders = entries.filter((e): e is TreeFolder => e.kind === "folder");
+const files = entries.filter((e): e is TreeFile => e.kind === "file");
+// Ancestors link where any link to a folder goes; the folder itself links to this page.
+const segments = folder.path.split("/");
+const ancestors = segments.slice(0, -1).map((_, i) => all.get(segments.slice(0, i + 1).join("/"))!);
+const index = folder.indexNote;
+---
+<main class="home folder-page" id="content">
+  <nav class="breadcrumbs" aria-label="Breadcrumbs">
+    <ol>
+      <li><a href="/">Vault</a></li>
+      {ancestors.map((ancestor) => <li><a href={ancestor.href}>{ancestor.name}</a></li>)}
+      <li><a href={folderUrlFor(folder.path)} aria-current="page">{folder.name}</a></li>
+    </ol>
+  </nav>
+  <h1>{folder.name}</h1>
+  {index && (
+    <p class="folder-index-note">
+      <a href={viewerUrlFor(index.slug)}>{noteTitle(index)}</a>
+    </p>
+  )}
+  {folders.length > 0 && (
+    <section>
+      <h2>Folders</h2>
+      <ul class="home-folders">
+        {folders.map((sub) => <li><a href={sub.href}>{sub.name}</a></li>)}
+      </ul>
+    </section>
+  )}
+  {files.length > 0 && (
+    <section>
+      <h2>Files</h2>
+      <ul class="home-files">
+        {files.map((file) => <li><a href={file.href}>{file.name}</a></li>)}
+      </ul>
+    </section>
+  )}
+</main>
+
+<style>
+  /* Only Base's tokens. */
+  .breadcrumbs ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+  /* The divider is decorative: the empty alt keeps it out of the accessibility tree. */
+  .breadcrumbs li + li::before { content: "/"; content: "/" / ""; margin-inline-end: 0.5rem; }
+  .breadcrumbs a { color: inherit; }
+  .breadcrumbs a[aria-current="page"] { color: var(--foreground); font-weight: 600; text-decoration: none; }
+  .folder-index-note a {
+    display: block;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--card-foreground);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .folder-index-note a:hover { background: var(--accent); color: var(--accent-foreground); }
+  @media (forced-colors: active) {
+    .breadcrumbs a[aria-current="page"] { text-decoration: underline; }
+  }
+</style>

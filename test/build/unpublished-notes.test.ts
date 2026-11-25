@@ -69,7 +69,7 @@ describe("unpublished notes", () => {
 
   test("it is absent from the file tree and the home page's list and counts", async () => {
     const home = await build.page("/");
-    const tree = [...home.querySelectorAll("nav.file-tree a, nav.file-tree summary")].map((el) => el.textContent!.trim());
+    const tree = [...home.querySelectorAll("nav.file-tree a:not(.folder-link), nav.file-tree summary")].map((el) => el.textContent!.trim());
     expect(tree).toEqual(["Garden", "Beds", "Inbox"]);
     const main = home.querySelector("body > main")!;
     expect([...main.querySelectorAll(".home-folders li")].map((li) => li.textContent!.trim())).toEqual(["Garden"]);

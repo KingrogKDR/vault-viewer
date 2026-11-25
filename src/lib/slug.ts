@@ -8,9 +8,20 @@
  * `.md`; other vault files keep their extension.
  */
 export function slugFor(vaultPath: string): string {
-  return vaultPath
-    .normalize("NFC")
-    .replace(/\.md$/i, "")
+  return slugSegments(vaultPath.normalize("NFC").replace(/\.md$/i, ""));
+}
+
+/**
+ * Slug for a folder's vault path (`Garden/Vegetables`), made like `slugFor`
+ * but never dropping `.md`: a folder named `Notes.md` keeps it, as the slugs
+ * of the vault files inside it do.
+ */
+export function folderSlugFor(folderPath: string): string {
+  return slugSegments(folderPath.normalize("NFC"));
+}
+
+function slugSegments(path: string): string {
+  return path
     .split("/")
     .map((segment) =>
       segment
@@ -28,6 +39,11 @@ export function slugFor(vaultPath: string): string {
  */
 export function viewerUrlFor(slug: string): string {
   return `/${slug.split("/").map(encodeURIComponent).join("/")}/`;
+}
+
+/** Site URL of a folder's folder page, `/<folder-slug>/`, percent-encoded like `viewerUrlFor`. */
+export function folderUrlFor(folderPath: string): string {
+  return viewerUrlFor(folderSlugFor(folderPath));
 }
 
 /**

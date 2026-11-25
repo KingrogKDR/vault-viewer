@@ -24,6 +24,8 @@ export interface TreeFolder {
   name: string;
   /** Vault path of the folder, `/`-separated. */
   path: string;
+  /** Where a link to the folder goes, when `buildFileTree` was given `folderHref`. */
+  href?: string;
   entries: TreeEntry[];
 }
 
@@ -34,8 +36,11 @@ function labelFor(fileName: string): string {
   return fileName.replace(/\.md$/i, "");
 }
 
-/** Arrange vault files into nested folders. */
-export function buildFileTree(files: TreeSource[]): TreeEntry[] {
+/**
+ * Arrange vault files into nested folders. `folderHref` gives each folder's
+ * link destination (see folders.ts), by the folder's vault path.
+ */
+export function buildFileTree(files: TreeSource[], folderHref?: (folderPath: string) => string | undefined): TreeEntry[] {
   const root: TreeFolder = { kind: "folder", name: "", path: "", entries: [] };
   for (const file of files) {
     const segments = file.path.split("/");
@@ -45,7 +50,7 @@ export function buildFileTree(files: TreeSource[]): TreeEntry[] {
       const path = folder.path ? `${folder.path}/${segment}` : segment;
       let next = folder.entries.find((e): e is TreeFolder => e.kind === "folder" && e.name === segment);
       if (!next) {
-        next = { kind: "folder", name: segment, path, entries: [] };
+        next = { kind: "folder", name: segment, path, href: folderHref?.(path), entries: [] };
         folder.entries.push(next);
       }
       folder = next;
@@ -54,6 +59,16 @@ export function buildFileTree(files: TreeSource[]): TreeEntry[] {
   }
   sortEntries(root.entries);
   return root.entries;
+}
+
+/** The folder at vault path `path` in a built tree, if there is one. */
+export function findTreeFolder(entries: TreeEntry[], path: string): TreeFolder | undefined {
+  for (const entry of entries) {
+    if (entry.kind !== "folder") continue;
+    if (entry.path === path) return entry;
+    if (path.startsWith(`${entry.path}/`)) return findTreeFolder(entry.entries, path);
+  }
+  return undefined;
 }
 
 /** Natural, case-insensitive order: `Day 2` before `Day 10`, `apple` before `Banana`. */
