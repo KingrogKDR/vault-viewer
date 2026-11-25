@@ -15,7 +15,7 @@ const fileCount = vault.files.length;
 const counted = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 ---
 <Base title="Vault">
-  <main class="home">
+  <main class="home" id="content">
     <h1>Vault</h1>
     <p class="home-counts">{counted(noteCount, "note")}, {counted(fileCount, "file")}</p>
     {folders.length > 0 && (

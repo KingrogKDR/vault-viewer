@@ -1,6 +1,7 @@
 ---
 // The shared page layout: header, file tree sidebar, and the page's content
-// in the default slot. Pages put their own <main> in the slot.
+// in the default slot. Pages put their own <main id="content"> in the slot
+// (the skip link points at it).
 //
 // On narrow screens the tree hides behind the header's "Files" button. The
 // button is a label for a checkbox that precedes the tree, so CSS alone
@@ -8,6 +9,11 @@
 import { loadVault } from "../lib/vault";
 import { buildFileTree } from "../lib/file-tree";
 import FileTree from "../components/FileTree.astro";
+// Fonts are self-hosted from @fontsource packages and bundled into the build,
+// so they work offline and never touch a font CDN. Two variable families.
+import "@fontsource-variable/source-serif-4/wght.css";
+import "@fontsource-variable/source-serif-4/wght-italic.css";
+import "@fontsource-variable/caveat/wght.css";
 
 interface Props {
   /** The page's <title>. */
@@ -24,14 +30,20 @@ const tree = buildFileTree((await loadVault()).files);
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="text-scale" content="scale" />
     <meta name="robots" content="noindex, nofollow" />
     <title>{title}</title>
     <slot name="head" />
   </head>
   <body>
+    <a class="skip-link" href="#content">Skip to content</a>
     <input type="checkbox" id="file-tree-toggle" class="file-tree-toggle" aria-controls="file-tree" />
     <header class="site-header">
-      <label for="file-tree-toggle" class="file-tree-button">Files</label>
+      <label for="file-tree-toggle" class="button file-tree-button">
+        <svg class="button-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+        Files
+      </label>
       <a class="site-name" href="/">Vault</a>
     </header>
     <nav class="file-tree" id="file-tree" aria-label="Files">
@@ -42,78 +54,528 @@ const tree = buildFileTree((await loadVault()).files);
 </html>
 
 <style is:global>
+  /*
+   * Theme: a paper notebook, in shadcn/ui's restrained component language.
+   * Every colour is a variable here, redefined in full for dark mode ("dark
+   * paper": an ink-blue sheet with chalk ruling). No colour literals anywhere
+   * else, components included (a build test checks this).
+   */
   :root {
     color-scheme: light dark;
-    --bg: #fdfdfc;
-    --fg: #1f2328;
-    --muted: #59636e;
-    --line: #d1d9e0;
-    --accent: #0969da;
-    --current-bg: #ddf4ff;
+    --background: #ece4d4;
+    --foreground: #2a2824;
+    --card: #fcf9f2;
+    --card-foreground: #2a2824;
+    --muted: #e7dfcf;
+    --muted-foreground: #645b4f;
+    --accent: #e6dcc8;
+    --accent-foreground: #2a2824;
+    --primary: #1d4b94;
+    --primary-foreground: #fcf9f2;
+    --border: #d3c8b2;
+    --input: #8a7f6e;
+    --ring: #3d6fc2;
+    --sidebar: #f4eee2;
+    --highlight: #f7e49b;
+    --rule: #d3deea;
+    --margin-line: #e19ca2;
+    --code-bg: #f3ecdf;
+    --scrollbar-thumb: #847862;
+    --selection: #c9daf5;
+    --shadow: #4a3a1a26;
+    --destructive: #b2362b;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0d1117;
-      --fg: #e6edf3;
-      --muted: #9198a1;
-      --line: #3d444d;
-      --accent: #4493f8;
-      --current-bg: #102a4c;
+      --background: #0f131b;
+      --foreground: #e7e2d6;
+      --card: #19202e;
+      --card-foreground: #e7e2d6;
+      --muted: #222a3b;
+      --muted-foreground: #aca596;
+      --accent: #283249;
+      --accent-foreground: #f0ebe0;
+      --primary: #93b6ff;
+      --primary-foreground: #19202e;
+      --border: #313b53;
+      --input: #8590a8;
+      --ring: #93b6ff;
+      --sidebar: #141a25;
+      --highlight: #36426a;
+      --rule: #273149;
+      --margin-line: #8f4a5a;
+      --code-bg: #141a26;
+      --scrollbar-thumb: #67738f;
+      --selection: #34508a;
+      --shadow: #00000080;
+      --destructive: #f2897c;
     }
   }
 
+  /* Non-colour tokens: shadcn's radius, the notebook's ruling, the fonts. */
+  html {
+    --radius: 0.5rem;
+    --line-h: 1.75rem;
+    --sheet-pad-top: 2.625rem;
+    --sheet-margin: 4.5rem;
+    --rule-lift: 0.375rem;
+    --header-h: 3.25rem;
+    --font-serif: "Source Serif 4 Variable", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --font-hand: "Caveat Variable", "Bradley Hand", "Segoe Print", "Source Serif 4 Variable", Georgia, serif;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Code", Menlo, Consolas, monospace;
+    accent-color: var(--primary);
+    scrollbar-color: var(--scrollbar-thumb) var(--background);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  ::selection { background: var(--selection); color: var(--foreground); }
+
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--fg);
-    font: 1rem/1.6 system-ui, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-serif);
+    font-size: 1.0625rem;
+    /* Unitless, so it scales with any font size; equals --line-h at the body size. */
+    line-height: 1.647;
+    font-optical-sizing: auto;
+    /* A fallback font is scaled to the web font's x-height, so the swap doesn't shift layout. */
+    font-size-adjust: from-font;
     display: grid;
-    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr);
+    grid-template-columns: minmax(14rem, 17rem) minmax(0, 1fr);
     grid-template-rows: auto 1fr;
-    grid-template-areas: "header header" "tree main";
-    min-height: 100vh;
+    grid-template-areas:
+      "header header"
+      "tree   main";
+    min-block-size: 100vh;
+    min-block-size: 100dvh;
   }
-  a { color: var(--accent); }
-  /* A link or image in a note that resolves to no vault file. */
-  .broken-link { color: var(--muted); text-decoration: underline dotted; outline: 1px dashed var(--muted); }
+
+  a {
+    color: var(--primary);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+    transition: color 0.15s, background-color 0.15s;
+  }
+  a:hover { text-decoration-thickness: 2px; }
+  :where(a, summary, label, input, [tabindex]):focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+  /* A link or image in a note that resolves to no vault file: a teacher's red wavy line. */
+  .broken-link {
+    color: var(--muted-foreground);
+    text-decoration: underline wavy var(--destructive);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.25em;
+    outline: 1px dashed var(--destructive);
+    outline-offset: 2px;
+    cursor: not-allowed;
+  }
   a.broken-link { outline: none; }
 
+  /* Hidden until focused, then shown at the top left without shifting the page. */
+  .skip-link {
+    position: fixed;
+    inset-block-start: 0.5rem;
+    inset-inline-start: 0.5rem;
+    z-index: 20;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--foreground);
+    font: 500 0.875rem/1.25 var(--font-sans);
+    transform: translateY(-200%);
+  }
+  .skip-link:focus-visible { transform: none; }
+
+  /* Header: a thin shadcn-style bar. */
   .site-header {
     grid-area: header;
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 10;
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid var(--line);
+    gap: 0.75rem;
+    min-block-size: var(--header-h);
+    padding: 0.375rem 1.25rem;
+    background: var(--background);
+    border-block-end: 1px solid var(--border);
+    font-family: var(--font-sans);
   }
-  .site-name { color: inherit; font-weight: 600; text-decoration: none; }
+  .site-name {
+    color: var(--foreground);
+    font-family: var(--font-hand);
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+  }
+  .site-name:hover { color: var(--primary); }
 
-  body > main { grid-area: main; padding: 1rem 2rem; max-width: 48rem; }
+  /*
+   * A shadcn outline button: the "Files" toggle and the page actions. Icons
+   * are inline SVG in currentColor, so they keep showing in forced colours.
+   */
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: 2.25rem;
+    padding: 0.25rem 0.875rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--foreground);
+    font: 500 0.875rem/1.25 var(--font-sans);
+    text-decoration: none;
+    box-shadow: 0 1px 2px var(--shadow);
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .button:hover { background: var(--accent); color: var(--accent-foreground); }
+  .button-icon { flex: none; inline-size: 1rem; block-size: 1rem; }
 
-  /* The checkbox stays focusable for keyboards but is visually hidden. */
-  .file-tree-toggle { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
-  .file-tree-button { display: none; cursor: pointer; padding: 0.25rem 0.75rem; border: 1px solid var(--line); border-radius: 0.375rem; }
-  .file-tree-toggle:focus-visible ~ .site-header .file-tree-button { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /*
+   * The "Files" toggle, shown on narrow screens only. Its checkbox is visually
+   * hidden there but stays focusable for keyboards; on wide screens, where the
+   * tree is always shown, it is out of the tab order altogether.
+   */
+  .file-tree-toggle { display: none; }
+  .file-tree-button { display: none; }
+  .file-tree-toggle:focus-visible ~ .site-header .file-tree-button { outline: 2px solid var(--ring); outline-offset: 2px; }
+  .file-tree-toggle:checked ~ .site-header .file-tree-button { background: var(--accent); }
 
+  /* The file tree: the notebook's index, with shadcn Sidebar menu items. */
   .file-tree {
     grid-area: tree;
-    padding: 0.75rem 0.5rem;
-    border-right: 1px solid var(--line);
+    align-self: start;
+    position: sticky;
+    inset-block-start: var(--header-h);
+    max-block-size: calc(100vh - var(--header-h));
+    max-block-size: calc(100dvh - var(--header-h));
+    min-block-size: calc(100vh - var(--header-h));
+    min-block-size: calc(100dvh - var(--header-h));
     overflow-y: auto;
-    font-size: 0.9rem;
+    padding: 1rem 0 1.5rem 0.75rem;
+    background: var(--sidebar);
+    border-inline-end: 1px solid var(--border);
+    font-family: var(--font-sans);
+    font-size: 0.875rem;
+    line-height: 1.43;
   }
-  .file-tree ul { list-style: none; margin: 0; padding-left: 0.9rem; }
-  .file-tree > ul { padding-left: 0; }
-  .file-tree summary { cursor: pointer; color: var(--muted); }
-  .file-tree a { display: block; padding: 0.05rem 0.4rem; border-radius: 0.25rem; color: inherit; text-decoration: none; overflow-wrap: anywhere; }
-  .file-tree a:hover { text-decoration: underline; }
-  .file-tree a[aria-current="page"] { background: var(--current-bg); font-weight: 600; }
+  .file-tree::before {
+    content: "Index";
+    /* Decorative: the nav is already named "Files". */
+    content: "Index" / "";
+    display: block;
+    margin: 0 0.75rem 0.5rem 0.5rem;
+    padding-block-end: 0.125rem;
+    border-block-end: 2px solid var(--margin-line);
+    color: var(--muted-foreground);
+    font-family: var(--font-hand);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+  }
+  .file-tree ul { list-style: none; margin: 0; padding: 0 0 0 0.75rem; }
+  .file-tree > ul { padding-inline-start: 0; }
+  .file-tree ul ul { margin-inline-start: 0.5rem; border-inline-start: 1px solid var(--border); }
+  .file-tree li { margin: 1px 0; }
+  .file-tree summary,
+  .file-tree a {
+    display: block;
+    padding: 0.375rem 0.5rem;
+    margin-inline-end: 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    color: var(--foreground);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+    transition: background-color 0.15s, color 0.15s;
+  }
+  .file-tree summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted-foreground);
+  }
+  .file-tree summary::-webkit-details-marker { display: none; }
+  .file-tree summary::before {
+    content: "";
+    display: inline-block;
+    inline-size: 0.4rem;
+    block-size: 0.4rem;
+    margin: 0 0.55rem 0.1rem 0.1rem;
+    border-inline-end: 1.5px solid currentColor;
+    border-block-end: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform 0.15s;
+  }
+  .file-tree details[open] > summary::before { transform: rotate(45deg); }
+  .file-tree summary:hover,
+  .file-tree a:hover { background: var(--accent); color: var(--accent-foreground); }
+  /* The current vault file: marker-highlighted, poking out of the index like a tab. */
+  .file-tree a[aria-current="page"] {
+    margin-inline-end: 0;
+    border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px);
+    background: var(--highlight);
+    color: var(--foreground);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--primary);
+  }
+
+  /*
+   * The paper sheet every page's <main> sits on: ruled lines one --line-h
+   * apart, starting below the top band, and a double margin line on the left.
+   */
+  body > main {
+    position: relative;
+    grid-area: main;
+    justify-self: center;
+    inline-size: calc(100% - 3rem);
+    /* Keeps the reading measure near 75 characters a line. */
+    max-inline-size: 48rem;
+    margin: 1.5rem 1.5rem 3rem;
+    padding: var(--sheet-pad-top) 2.5rem var(--line-h) calc(var(--sheet-margin) + 1.5rem);
+    line-height: var(--line-h);
+    background-color: var(--card);
+    color: var(--card-foreground);
+    background-image:
+      linear-gradient(to right,
+        transparent var(--sheet-margin),
+        var(--margin-line) var(--sheet-margin) calc(var(--sheet-margin) + 1px),
+        transparent calc(var(--sheet-margin) + 1px) calc(var(--sheet-margin) + 4px),
+        var(--margin-line) calc(var(--sheet-margin) + 4px) calc(var(--sheet-margin) + 5px),
+        transparent calc(var(--sheet-margin) + 5px)),
+      repeating-linear-gradient(to bottom,
+        transparent 0 calc(var(--line-h) - 1px),
+        var(--rule) calc(var(--line-h) - 1px) var(--line-h));
+    /* Rules sit a little above each line box's foot, so text rests on them with descenders crossing. */
+    background-position: 0 0, 0 calc(var(--sheet-pad-top) - var(--rule-lift));
+    background-size: 100% 100%, 100% calc(100% - var(--sheet-pad-top));
+    background-repeat: no-repeat;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 2px var(--shadow), 0 10px 28px -14px var(--shadow);
+    overflow-wrap: break-word;
+  }
+
+  /* Reading typography, keeping to the ruled-line rhythm where it can. */
+  main p, main ul, main ol, main dl, main table, main pre, main blockquote, main figure { margin: 0 0 var(--line-h); }
+  main p, main li, main blockquote { text-wrap: pretty; }
+  main h1, main h2, main h3, main h4, main h5, main h6 { text-wrap: balance; }
+  main h1, main h2, main h3 {
+    font-family: var(--font-hand);
+    font-weight: 700;
+    color: var(--foreground);
+    letter-spacing: 0.01em;
+  }
+  main h1 { font-size: clamp(2.25rem, 1.9rem + 1.5vw, 2.75rem); line-height: calc(var(--line-h) * 2); margin: 0 0 var(--line-h); }
+  main h2 { font-size: clamp(1.875rem, 1.65rem + 1vw, 2.125rem); line-height: calc(var(--line-h) * 2); margin: var(--line-h) 0 0; }
+  main h3 { font-size: 1.625rem; line-height: calc(var(--line-h) * 1.5); margin: calc(var(--line-h) / 2) 0 0; }
+  main h4, main h5, main h6 { font-size: 1rem; line-height: var(--line-h); margin: var(--line-h) 0 0; font-weight: 700; }
+  main h5, main h6 { color: var(--muted-foreground); }
+  main h6 { font-style: italic; }
+
+  main ul, main ol { padding-inline-start: 1.5rem; }
+  main li > ul, main li > ol { margin: 0; }
+  main li::marker { color: var(--muted-foreground); }
+  main ul.contains-task-list { list-style: none; padding-inline-start: 0.25rem; }
+  main li.task-list-item ul { padding-inline-start: 1.75rem; }
+  /* GFM task-list checkboxes, drawn like ink boxes (they're disabled, so keep them fully opaque). */
+  main input[type="checkbox"] {
+    appearance: none;
+    position: relative;
+    inline-size: 1rem;
+    block-size: 1rem;
+    margin: 0 0.5rem 0 0;
+    vertical-align: -0.125rem;
+    border: 1.5px solid var(--input);
+    border-radius: 0.25rem;
+    background: var(--card);
+    opacity: 1;
+  }
+  main input[type="checkbox"]:checked { background: var(--primary); border-color: var(--primary); }
+  main input[type="checkbox"]:checked::after {
+    content: "";
+    position: absolute;
+    inset-inline-start: 0.27rem;
+    inset-block-start: 0.07rem;
+    inline-size: 0.3rem;
+    block-size: 0.55rem;
+    border: solid var(--primary-foreground);
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+  }
+  main li.task-list-item:has(> input:checked) { color: var(--muted-foreground); text-decoration: line-through; }
+
+  main blockquote {
+    padding: 0 1rem;
+    border-inline-start: 3px solid var(--margin-line);
+    color: var(--muted-foreground);
+    font-style: italic;
+  }
+  main blockquote > :last-child { margin-block-end: 0; }
+
+  main code, main kbd, main samp { font-family: var(--font-mono); font-size: 0.85em; }
+  main :not(pre) > code {
+    padding: 0.1em 0.35em;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 4px);
+    background: var(--code-bg);
+  }
+  main pre {
+    padding: calc(var(--line-h) / 2 - 1px) 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--code-bg);
+    font-size: 0.875rem;
+    line-height: var(--line-h);
+  }
+  main pre code { font-size: inherit; }
+
+  /*
+   * Each table sits in its own focusable scroll region (rehypeScrollTables),
+   * so a wide one scrolls sideways rather than widening the sheet, and the
+   * table keeps display: table and its semantics.
+   */
+  main .table-scroll {
+    inline-size: fit-content;
+    max-inline-size: 100%;
+    margin: 0 0 var(--line-h);
+    overflow-x: auto;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  main .table-scroll > table { margin: 0; }
+  main table { border-collapse: collapse; font-size: 0.9375rem; }
+  main th, main td { padding: 0.25rem 0.75rem; border-block-end: 1px solid var(--border); text-align: start; vertical-align: top; }
+  main th { font-family: var(--font-sans); font-size: 0.8125rem; font-weight: 600; color: var(--muted-foreground); background: var(--muted); }
+  main tr:last-child > td { border-block-end: 0; }
+  main tbody tr:hover { background: var(--accent); }
+
+  main img, main video { max-inline-size: 100%; block-size: auto; }
+  /* Images in notes sit on the page like pasted-in photos. */
+  article.note img {
+    padding: 0.375rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 2px);
+    box-shadow: 0 2px 8px -4px var(--shadow);
+  }
+  article.note img.broken-link { padding: 0.25rem 0.5rem; box-shadow: none; }
+
+  main hr {
+    block-size: 0;
+    margin: calc(var(--line-h) - 1px) 0 var(--line-h);
+    border: 0;
+    border-block-start: 1px dashed var(--muted-foreground);
+  }
+  main del { color: var(--muted-foreground); }
+  main mark { background: var(--highlight); color: var(--foreground); padding: 0 0.15em; }
+
+  /*
+   * A viewer page's actions (PageActions): a row of buttons in the sheet's
+   * top-right corner, in a top band two ruled lines tall that pages with
+   * actions get. New actions (e.g. Share) join the row.
+   */
+  body > main.has-actions { --sheet-pad-top: calc(var(--line-h) * 2); }
+  .page-actions {
+    position: absolute;
+    inset-block-start: 0.625rem;
+    inset-inline-end: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    line-height: 1.25;
+  }
+
+  /* Home page. */
+  .home-counts { color: var(--muted-foreground); font-style: italic; }
+  .home-folders, .home-files { padding-inline-start: 0; list-style: none; }
+  .home-folders li::before {
+    content: "";
+    display: inline-block;
+    inline-size: 0.95rem;
+    block-size: 0.7rem;
+    margin-inline-end: 0.6rem;
+    border: 1.5px solid var(--muted-foreground);
+    border-block-start-width: 3px;
+    border-radius: 0.15rem;
+  }
+  .home-files li::before { content: "\2013"; content: "\2013" / ""; margin-inline-end: 0.6rem; color: var(--muted-foreground); }
+
+  /* Bigger tap targets in the index on touch screens. */
+  @media (pointer: coarse) {
+    .file-tree summary, .file-tree a { padding-block: 0.5rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+  }
+
+  /* Forced colours drop backgrounds and shadows, so mark state with outlines instead. */
+  /* Printing a page prints just the sheet's content, without the site's chrome or ruling. */
+  @media print {
+    body { display: block; background: none; }
+    .skip-link, .site-header, .file-tree, .page-actions { display: none; }
+    body > main {
+      inline-size: auto;
+      max-inline-size: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      box-shadow: none;
+      background: none;
+    }
+    main pre, main .table-scroll { overflow: visible; }
+    main h1, main h2, main h3 { break-after: avoid; }
+    main img, main pre, main .table-scroll, main blockquote { break-inside: avoid; }
+  }
+
+  @media (forced-colors: active) {
+    .file-tree a[aria-current="page"] { outline: 2px solid; outline-offset: -2px; }
+    body > main { background-image: none; }
+  }
 
   @media (max-width: 48rem) {
-    body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "header" "tree" "main"; grid-template-rows: auto auto 1fr; }
-    body > main { padding: 1rem; }
-    .file-tree-button { display: inline-block; }
-    .file-tree { display: none; border-right: 0; border-bottom: 1px solid var(--line); }
+    html { --sheet-margin: 1.5rem; --sheet-pad-top: 1.75rem; }
+    body {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      grid-template-areas: "header" "tree" "main";
+    }
+    .site-header { padding: 0.375rem 0.75rem; }
+    body > main {
+      justify-self: stretch;
+      inline-size: auto;
+      margin: 0.75rem 0.5rem 1.5rem;
+      padding: var(--sheet-pad-top) 1rem var(--line-h) calc(var(--sheet-margin) + 0.875rem);
+    }
+    /* A single margin line on phones. */
+    body > main {
+      background-image:
+        linear-gradient(to right, transparent var(--sheet-margin), var(--margin-line) var(--sheet-margin) calc(var(--sheet-margin) + 1px), transparent calc(var(--sheet-margin) + 1px)),
+        repeating-linear-gradient(to bottom, transparent 0 calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px) var(--line-h));
+    }
+    .file-tree-toggle { display: block; position: absolute; opacity: 0; inline-size: 1px; block-size: 1px; margin: 0; }
+    .file-tree-button { display: inline-flex; }
+    .file-tree {
+      display: none;
+      position: static;
+      max-block-size: none;
+      min-block-size: 0;
+      padding-inline-end: 0.75rem;
+      border-inline-end: 0;
+      border-block-end: 1px solid var(--border);
+    }
+    .file-tree summary, .file-tree a { margin-inline-end: 0; }
+    .file-tree a[aria-current="page"] { border-radius: calc(var(--radius) - 2px); }
     #file-tree-toggle:checked ~ .file-tree { display: block; }
   }
 </style>
