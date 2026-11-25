@@ -39,6 +39,20 @@ export function rawUrlFor(vaultPath: string): string {
   return `/raw/${rawPathFor(vaultPath).split("/").map(encodeURIComponent).join("/")}`;
 }
 
+/**
+ * Site URL of a shared page, `/s/<token>/` (ADR-0006). `token` comes from
+ * `shareTokenFor` (share.ts) and is already URL-safe. Everything a shared
+ * page uses lives under this URL, outside Access.
+ */
+export function sharedPageUrlFor(token: string): string {
+  return `/s/${token}/`;
+}
+
+/** Site URL of a file a shared page shows (an image, audio, video), copied under the page's own URL. */
+export function sharedFileUrlFor(token: string, name: string): string {
+  return `${sharedPageUrlFor(token)}${encodeURIComponent(name)}`;
+}
+
 /** Where a vault file's raw file is written under `/raw/`, decoded: its slug, plus `.md` for notes. */
 export function rawPathFor(vaultPath: string): string {
   return /\.md$/i.test(vaultPath) ? `${slugFor(vaultPath)}.md` : slugFor(vaultPath);

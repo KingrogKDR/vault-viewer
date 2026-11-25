@@ -115,14 +115,18 @@ export interface SiteBuild {
 export interface BuildOptions {
   /** Vault directory to build from. `null` leaves `VAULT_DIR` unset. */
   vaultDir: string | null;
+  /** `SHARE_SECRET` for the build; unset when omitted, so sharing is off. */
+  shareSecret?: string;
 }
 
 /** Run the real site build against a vault into a fresh temporary output directory. */
-export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> {
+export async function buildSite({ vaultDir, shareSecret }: BuildOptions): Promise<SiteBuild> {
   const outDir = await makeTempDir("out", OUT_PARENT);
   const env: Record<string, string | undefined> = { ...process.env, ASTRO_TELEMETRY_DISABLED: "1" };
   delete env.VAULT_DIR;
+  delete env.SHARE_SECRET;
   if (vaultDir !== null) env.VAULT_DIR = vaultDir;
+  if (shareSecret !== undefined) env.SHARE_SECRET = shareSecret;
 
   const proc = Bun.spawn([ASTRO_BIN, "build", "--outDir", outDir], {
     cwd: REPO_ROOT,
@@ -173,7 +177,10 @@ export async function buildSite({ vaultDir }: BuildOptions): Promise<SiteBuild> 
   };
 }
 
-/** One call: create a fixture vault from these files and build the site from it. */
-export async function buildFixtureVault(files: FixtureFiles, options?: FixtureOptions): Promise<SiteBuild> {
-  return buildSite({ vaultDir: await createFixtureVault(files, options) });
+/** One call: create a fixture vault from these files and build the site from it (with `shareSecret` as `SHARE_SECRET`). */
+export async function buildFixtureVault(
+  files: FixtureFiles,
+  { shareSecret, ...options }: FixtureOptions & { shareSecret?: string } = {},
+): Promise<SiteBuild> {
+  return buildSite({ vaultDir: await createFixtureVault(files, options), shareSecret });
 }

@@ -1,0 +1,11 @@
+---
+// The site's 404 page, `404.html`. Cloudflare Pages serves it for any URL
+// with no file. Without it, Pages would serve the home page instead, and an
+// unknown URL under /s/ (outside Access, ADR-0006) would show anyone the file
+// tree. So it uses the shared page layout and shows nothing of the vault.
+import Shared from "../layouts/Shared.astro";
+---
+<Shared title="Not found">
+  <h1>Not found</h1>
+  <p>There is no page at this address.</p>
+</Shared>

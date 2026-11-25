@@ -6,6 +6,7 @@ import Base from "../layouts/Base.astro";
 import { noteTitle } from "../lib/note-title";
 import AttachmentViewer from "../components/AttachmentViewer.astro";
 import PageActions from "../components/PageActions.astro";
+import { sharedPageFor } from "../lib/share";
 
 export async function getStaticPaths() {
   const vault = await loadVault();
@@ -21,10 +22,12 @@ const file = vault.files.find((f) => f.path === listed.path) ?? listed;
 const title = file.kind === "note" ? noteTitle(file) : file.path.slice(file.path.lastIndexOf("/") + 1);
 // The rendered body opens with the note's one h1, showing `title`.
 const html = file.kind === "note" ? await renderNote(vault, file, await readFile(file.absolutePath, "utf8"), { title }) : "";
+// A shared note's page gets a Share button, when the build shares.
+const shareUrl = sharedPageFor(vault, file)?.url;
 ---
 <Base title={title} current={file.path}>
   <main id="content" class="has-actions">
-    <PageActions file={file} />
+    <PageActions file={file} shareUrl={shareUrl} />
     {file.kind === "note" ? <article class="note" set:html={html} /> : <AttachmentViewer file={file} title={title} />}
   </main>
 </Base>

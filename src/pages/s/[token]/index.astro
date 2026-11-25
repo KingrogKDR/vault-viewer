@@ -1,0 +1,23 @@
+---
+// A shared note's shared page, at `/s/<token>/` outside Access (ADR-0006).
+// Only the note: its links lead to other shared pages or nowhere, and its
+// images, audio and video are copied beside it ([name].ts). None are written
+// without a share secret.
+import { loadVault } from "../../../lib/vault";
+import { renderSharedPage, sharedPages, type SharedPage } from "../../../lib/share";
+import Shared from "../../../layouts/Shared.astro";
+
+export async function getStaticPaths() {
+  const vault = await loadVault();
+  return sharedPages(vault).map((page) => ({ params: { token: page.token }, props: { page } }));
+}
+
+// `astro dev` caches getStaticPaths props, so take the page from the current vault read.
+const { page: listed } = Astro.props as { page: SharedPage };
+const vault = await loadVault();
+const page = sharedPages(vault).find((p) => p.token === listed.token) ?? listed;
+const { title, html } = await renderSharedPage(vault, page);
+---
+<Shared title={title}>
+  <article class="note" set:html={html} />
+</Shared>

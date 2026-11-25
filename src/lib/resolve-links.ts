@@ -8,23 +8,38 @@ import { resolveLink } from "./link-resolver";
 import { rawUrlFor, viewerUrlFor } from "./slug";
 import type { Vault, VaultFile } from "./vault";
 
+/**
+ * Where a rendered note's resolved links and media point. `undefined` means
+ * the page may not point at that vault file: it is shown as a broken link.
+ */
+export interface LinkUrls {
+  /** The href of a link to `file`. */
+  link(file: VaultFile): string | undefined;
+  /** The src that shows `file` inline (an image, audio or video). */
+  media(file: VaultFile): string | undefined;
+}
+
+/** On the owner's pages, a link opens the vault file's viewer page and media shows its raw file. */
+export const OWNER_URLS: LinkUrls = {
+  link: (file) => viewerUrlFor(file.slug),
+  media: (file) => rawUrlFor(file.path),
+};
+
 export interface ResolveLinksOptions {
   vault: Vault;
   /** Vault path of the note being rendered. */
   fromPath: string;
+  urls: LinkUrls;
 }
 
-interface Target {
-  attribute: "href" | "src";
-  urlFor: (file: VaultFile) => string;
-}
-
-// A link opens the vault file's viewer page; an image or media source shows its bytes.
-const LINK: Target = { attribute: "href", urlFor: (file) => viewerUrlFor(file.slug) };
-const EMBED: Target = { attribute: "src", urlFor: (file) => rawUrlFor(file.path) };
-
-/** Elements whose target is a vault file, by tag name. */
-const TARGETS: Record<string, Target> = { a: LINK, img: EMBED, video: EMBED, audio: EMBED, source: EMBED };
+/** Elements whose target is a vault file, by tag name: the attribute naming it, and which kind of URL it gets. */
+const TARGETS: Record<string, { attribute: "href" | "src"; url: keyof LinkUrls }> = {
+  a: { attribute: "href", url: "link" },
+  img: { attribute: "src", url: "media" },
+  video: { attribute: "src", url: "media" },
+  audio: { attribute: "src", url: "media" },
+  source: { attribute: "src", url: "media" },
+};
 
 /**
  * Whether a target names a vault file. Anything with a scheme (`https:`,
@@ -48,7 +63,7 @@ function decoded(target: string): string {
   }
 }
 
-export function rehypeResolveLinks({ vault, fromPath }: ResolveLinksOptions) {
+export function rehypeResolveLinks({ vault, fromPath, urls }: ResolveLinksOptions) {
   return (tree: Root) => {
     visit(tree, "element", (node: Element) => {
       const target = TARGETS[node.tagName];
@@ -59,11 +74,13 @@ export function rehypeResolveLinks({ vault, fromPath }: ResolveLinksOptions) {
       const hash = value.indexOf("#");
       const [path, fragment] = hash === -1 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
       const file = resolveLink(vault, fromPath, decoded(path));
-      if (file) {
-        node.properties[target.attribute] = target.urlFor(file) + fragment;
+      const url = file && urls[target.url](file);
+      if (url !== undefined) {
+        node.properties[target.attribute] = url + fragment;
       } else {
         // Kept and shown as broken, never dropped, but without its target:
-        // it would only 404, and it may name an unpublished note.
+        // it would only 404, and it may name an unpublished note (or, on a
+        // shared page, a vault file the visitor may not see).
         delete node.properties[target.attribute];
         const classes = node.properties.className;
         node.properties.className = [...(Array.isArray(classes) ? classes : []), "broken-link"];
