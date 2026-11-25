@@ -18,6 +18,8 @@ A read-only, offline-capable website for one person's Obsidian vault. It is buil
 
 Bun for JS/TS (there is no npm on the dev machine) and Go for `vaultsync`. Local builds read the vault from `VAULT_DIR`.
 
+Where a skill or tool says to run `npx`, run the same command with `bunx`.
+
 <!-- Keep this file a map: what lives where, and how to run it. Update it as each milestone lands. -->
 
 ### Commands
