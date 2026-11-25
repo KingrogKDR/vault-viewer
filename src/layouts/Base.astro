@@ -172,6 +172,10 @@ const tree = buildFileTree((await loadVault()).files);
     cursor: not-allowed;
   }
   a.broken-link { outline: none; }
+  /* Another note's content embedded in a note (`![[note]]`), and where embeds stop nesting. */
+  .embed { border-inline-start: 3px solid var(--border); padding-inline-start: 1rem; margin-block: 1.75rem; }
+  .embed-stopped { color: var(--muted-foreground); font-style: italic; }
+  article.note img, article.note video { max-width: 100%; height: auto; }
 
   /* Hidden until focused, then shown at the top left without shifting the page. */
   .skip-link {

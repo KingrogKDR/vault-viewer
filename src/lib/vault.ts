@@ -16,9 +16,12 @@ import { openingHeadingText } from "./opening-heading";
 const execFileAsync = promisify(execFile);
 
 /** Which viewer shows a vault file. More kinds (pdf, video, ...) arrive with their viewers. */
-export type VaultFileKind = "note" | "image" | "other";
+export type VaultFileKind = "note" | "image" | "audio" | "video" | "other";
 
 const IMAGE_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"]);
+// Obsidian's audio and video formats (`webm` plays as video).
+const AUDIO_EXTENSIONS = new Set(["mp3", "wav", "m4a", "ogg", "3gp", "flac"]);
+const VIDEO_EXTENSIONS = new Set(["mp4", "webm", "ogv", "mov", "mkv"]);
 
 /** The one place a vault file's kind is decided, from its vault path's extension. */
 function kindFor(path: string): VaultFileKind {
@@ -27,6 +30,8 @@ function kindFor(path: string): VaultFileKind {
   const extension = dot > 0 ? name.slice(dot + 1).toLowerCase() : "";
   if (extension === "md") return "note";
   if (IMAGE_EXTENSIONS.has(extension)) return "image";
+  if (AUDIO_EXTENSIONS.has(extension)) return "audio";
+  if (VIDEO_EXTENSIONS.has(extension)) return "video";
   return "other";
 }
 
