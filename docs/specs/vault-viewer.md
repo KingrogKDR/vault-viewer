@@ -118,9 +118,19 @@ There are three parts:
 
 ### Privacy and protection
 
-67. As the vault owner, I want the whole site behind Cloudflare Access with GitHub login only (no email OTP) and a one-month session, so that only I can read it and I rarely have to log in again.
+67. As the vault owner, I want the whole site behind Cloudflare Access with GitHub login only (no email OTP) and a one-month session, so that only I can read it (apart from the pages I share, see Sharing) and I rarely have to log in again.
 68. As the vault owner, I want `X-Robots-Tag: noindex, nofollow` on every response and a `robots.txt` that disallows everything, so that nothing gets indexed even if Access is misconfigured.
 69. As the vault owner, I want the site's own code in a public repo with no vault content in it, so that Actions minutes are free and nothing private leaks.
+
+### Sharing
+
+78. As the vault owner, I want to share one note by setting `share: true` in its frontmatter, so that I choose in Obsidian exactly which pages others can read.
+79. As the vault owner, I want a share button at the top of a shared note's viewer page that copies its link (or opens my phone's share sheet), so that sending it is one tap.
+80. As a visitor, I want to open a shared page without logging in, so that the owner can share with anyone.
+81. As the vault owner, I want a shared page to show only that note (no file tree, no markdown download, no links into the rest of the vault except other shared pages), so that sharing one note reveals nothing else.
+82. As the vault owner, I want the images and embeds in a shared note to show on its shared page, so that visitors see the note as I do.
+83. As the vault owner, I want a shared page's link to be unguessable and to stop working after I remove `share: true` and the site deploys, so that I can take a page back.
+84. As the vault owner, I want a build without the share secret to write no shared pages, so that a misconfigured build never exposes anything.
 
 ### Offline / PWA
 
@@ -198,7 +208,14 @@ There are three parts:
 - Triggers: a daily `schedule` and `workflow_dispatch`.
 - Check out `Obsidian_notes` with a read-only deploy key. Compare its HEAD SHA with the last deployed SHA, which is kept in the Actions cache. Skip if they're equal and the run isn't manual.
 - Steps: LibreOffice conversion (cached by content hash) → read `git log` for per-file last-edited dates and the recently-changed list → Astro build → Pagefind → `wrangler pages deploy`.
-- Secrets: `CLOUDFLARE_API_TOKEN` (Pages edit only) and `VAULT_DEPLOY_KEY`.
+- Secrets: `CLOUDFLARE_API_TOKEN` (Pages edit only), `VAULT_DEPLOY_KEY` and `SHARE_SECRET`.
+
+### Sharing (ADR-0006)
+- `share` is read like `publish`: `true` or the string `"true"` in any case shares the note; anything else does not. An unpublished note is never shared.
+- Each shared note gets a shared page at `/s/<token>/`, where the token is a base64url HMAC-SHA256 of its vault path under `SHARE_SECRET` (a build secret). Its images and embedded raw files are copied under `/s/<token>/`.
+- Links on a shared page go through the same resolver. A target that is itself a shared note links to its shared page; anything else keeps its text and loses its target, with the broken-link class.
+- Cloudflare Access gets one extra application for the `/s/` path with a Bypass (Everyone) policy. Part of the manual setup checklist.
+- The service worker never caches or precaches `/s/` pages for the owner.
 
 ### Headers
 - `_headers` sets `X-Robots-Tag: noindex, nofollow`, `Referrer-Policy: no-referrer` and `X-Content-Type-Options: nosniff` on all paths. `robots.txt` disallows everything. Every page also carries a robots `noindex` meta tag.
@@ -216,6 +233,7 @@ There are three parts:
 5. **Office and large files:** LibreOffice conversion, R2 upload, manifest, the `/media/*` Function, the 8 GB guard.
 6. **Search and history:** Pagefind, last-edited dates, recently changed.
 7. **PWA:** precache, on-demand cache, pinning, Access-expiry handling.
+8. **Sharing:** shared pages, the share button, the `/s/` Access bypass. Can land any time after milestone 2.
 
 ## Testing Decisions
 
@@ -226,7 +244,8 @@ There are three parts:
   - a git-ignored file;
   - a relative image link and an ambiguous wikilink;
   - mutually embedding notes;
-  - unicode and space-filled names.
+  - unicode and space-filled names;
+  - a shared note that links to a shared and an unshared note, and a build without `SHARE_SECRET`.
 
   Milestones 1, 2, 4, 5 (the conversion output and how manifest entries render) and 6 are tested here.
 - **Seam 2 — `vaultsync` CLI.** Run the compiled binary as a subprocess against a temporary vault, a local bare git repo acting as the remote, and a fake object store. Check: commits and pushed history, the `.gitignore` managed block, manifest contents, uploaded keys, no re-upload of known hashes, the 8 GB refusal, conflict handling (non-zero exit, no forced state), dry-run making no changes, and no empty commits. `notify-send` is replaced via `PATH` with a recorder.
@@ -251,7 +270,7 @@ There are three parts:
 - Dataview, block references, Canvas.
 - A custom domain.
 - Nextcloud, Oracle VM, Emacs.
-- Multiple users.
+- Multiple users with logins. Visitors see only shared pages.
 - Desktop plugin setup (PDF++, Office Reader, HTML Reader, VSCode Editor, CSV Lite, Excalidraw auto-export). That's a manual checklist item, not code.
 
 ## Further Notes
